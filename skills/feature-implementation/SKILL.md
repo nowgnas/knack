@@ -1,6 +1,6 @@
 ---
 name: feature-implementation
-description: 새 기능 추가나 기존 동작 변경을 정책 점검 → 설계 승인 → 구현 → 검증 순서로 진행한다. "주문 취소 기능 추가해줘", "add a feature" 같은 요청에 사용. 단순 설명이나 한 줄 수정에는 쓰지 않는다.
+description: 새 기능·동작 변경을 정책 점검 → 설계 승인 게이트 → 구현 → 검증 순서로 진행하고 .design/에 기록한다. "주문 취소 기능 추가해줘"처럼 요청할 때 사용. 단순 설명·한 줄 수정에는 쓰지 않는다.
 ---
 
 # Feature Implementation

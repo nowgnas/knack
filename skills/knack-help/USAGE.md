@@ -14,8 +14,8 @@ knack 은 백엔드 개발용 개인 에이전트 하네스입니다. 에이전�
 | 처음 보는 레포 | "이 레포 파악해줘", "quick으로 온보딩", "deep 모드로 결제 도메인 위주로" | `repo-onboarding` | `.onboarding/ONBOARDING.md` 외 |
 | API 동작 이해 | "POST /api/orders 흐름 따라가줘" | `trace-flow` | `.onboarding/flows/*.md` |
 | 새 기능 | "주문 취소 API 추가해줘" (요구사항·정책 문서가 있으면 함께) | `feature-implementation` | `.design/<날짜>-<slug>/DESIGN.md`, `SUMMARY.md` |
-| 버그 | "이 에러 원인 찾아서 고쳐줘" + 스택트레이스·로그 | `bug-fix` | `.design/<날짜>-bug-<slug>/BUGFIX.md` |
-| 머지 전 리뷰 | "내 변경사항 리뷰해줘" | `impl-review` | `.design/.../REVIEW.md` |
+| 버그 | "이 버그 고쳐줘", "이 에러 고쳐줘" + 스택트레이스·로그 | `bug-fix` | `.design/<날짜>-bug-<slug>/BUGFIX.md` |
+| 머지 전 리뷰 | "머지 전에 리뷰해줘" | `impl-review` | `.design/.../REVIEW.md` |
 | 스킬·룰·훅 설치·관리 | "이 스킬 설치해줘", "훅 추가해줘", "하네스 업데이트해줘" | `knack-manage` | 하네스 레포 변경 |
 | 내 정보 등록 | "내 정보 등록해줘", "페르소나 수정해줘" (자기소개 파일이 있으면 함께) | `persona` | `persona/core.md`, `persona/detail/*.md` |
 | 쉬운 말로 설명 | "이거 매니저한테 설명하려면", "ELI5로 설명해줘" | `eli5` | — |

@@ -1,6 +1,6 @@
 ---
 name: impl-review
-description: 완성된 변경(diff)을 구현 맥락이 없는 리뷰어가 설계·컨벤션·체크리스트로 리뷰한다. "머지 전에 리뷰해줘", "review my changes" 같은 요청과 구현·버그 수정의 리뷰 단계에 사용.
+description: 완성된 diff를 구현 맥락이 없는 리뷰어가 설계 문서·레포 컨벤션과 대조해 리뷰하고 .design/REVIEW.md를 남긴다. "머지 전에 리뷰해줘"라고 할 때와 구현·버그 수정의 리뷰 단계에 사용.
 ---
 
 # Impl Review
