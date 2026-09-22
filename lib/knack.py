@@ -135,7 +135,9 @@ def knack_skills():
     for d in sorted((KNACK / "skills").iterdir()):
         if (d / "SKILL.md").is_file():
             meta, _ = read_md(d / "SKILL.md")
-            out.append({"name": d.name, "meta": meta, "desc": meta.get("description", ""), "path": d / "SKILL.md"})
+            external = any((d / f).is_file() for f in (".knack-source", ".harness-source"))
+            out.append({"name": d.name, "meta": meta, "desc": meta.get("description", ""),
+                        "path": d / "SKILL.md", "external": external})
     return out
 
 
@@ -628,7 +630,9 @@ def cmd_doctor(_a):
         broad = [b for b in BROAD_TRIGGERS if b in desc]
         if broad:
             warn(f"{s['name']}: 넓은 트리거 {', '.join(broad)} — 의도가 드러나는 문구로 바꾸기")
-        if body_lines > BODY_MAX:
+        # 외부에서 가져온 스킬은 본문을 우리가 고치면 업스트림과 어긋난다. description 은
+        # 매 세션 로드되니 그대로 보고, 호출될 때만 읽는 본문은 원본에 맡긴다.
+        if body_lines > BODY_MAX and not s["external"]:
             warn(f"{s['name']}: 본문 {body_lines}줄 > {BODY_MAX} — 세부 절차를 references/ 로 분리")
     if counts["warn"] == before:
         ok(f"스킬 작성 기준 충족 (description ≤ {DESC_MAX}자, 본문 ≤ {BODY_MAX}줄, 넓은 트리거 없음)")

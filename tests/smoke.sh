@@ -389,6 +389,12 @@ printf '#!/bin/sh\necho hi\n' > "$TMP/extrepo/skills/gamma/run.sh"; chmod +x "$T
 check "add git URL: 출처·커밋 기록" 'python3 -c "import json; d=json.load(open(\"$C/skills/gamma/.knack-source\")); assert len(d[\"commit\"])==40 and d[\"subdir\"]==\"skills/gamma\""'
 check "add: 실행 파일 검토 경고" 'contains "$TMP/add2.txt" "실행 가능한 파일"'
 check "add: 중복은 거부" '! "$CH" add skill "$TMP/ext" --subdir alpha >/dev/null 2>&1'
+mkdir -p "$TMP/ext/longbody"
+{ printf -- '---\nname: longbody\ndescription: longbody skill for test\n---\n'; seq 1 80 | sed 's/^/line /'; } > "$TMP/ext/longbody/SKILL.md"
+"$CH" add skill "$TMP/ext" --subdir longbody > /dev/null
+check "외부 스킬은 본문 길이 검사에서 제외" '! "$CH" doctor 2>&1 | grep -q "longbody: 본문"'
+rm -f "$C/skills/longbody/.knack-source"
+check "하네스 자체 스킬은 본문 길이 검사 적용" '"$CH" doctor 2>&1 | grep -q "longbody: 본문 8[0-9]줄"'
 mkdir -p "$HOME/.claude/skills/legacy"
 printf -- '---\nname: legacy\ndescription: legacy skill for test\n---\n' > "$HOME/.claude/skills/legacy/SKILL.md"
 "$CH" adopt skill legacy > /dev/null
