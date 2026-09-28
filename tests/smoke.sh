@@ -368,8 +368,9 @@ C="$TMP/hcopy"; mkdir -p "$C"
 CH="$C/bin/knack"
 "$CH" new skill demo-skill > /dev/null
 check "new skill" '[ -f "$C/skills/demo-skill/SKILL.md" ] && "$CH" list skills | grep -q demo-skill'
-"$CH" new rule team-style > /dev/null
-check "new rule (기본 on-demand, 다음 번호)" 'grep -q "^load: on-demand" "$C"/rules/60-team-style.md'
+"$CH" new rule team-style > "$TMP/new-rule.txt"
+RULE_REL="$(sed -n 's/^생성: //p' "$TMP/new-rule.txt")"
+check "new rule (기본 on-demand, 다음 번호)" '[ -n "$RULE_REL" ] && grep -q "^load: on-demand" "$C/$RULE_REL"'
 "$CH" new hook my-hook > /dev/null
 check "new hook (기본 꺼짐, 실행 권한)" 'grep -q "\"enabled\": false" "$C/hooks/my-hook/hook.json" && [ -x "$C/hooks/my-hook/hook.py" ]'
 "$CH" hook enable my-hook > /dev/null
