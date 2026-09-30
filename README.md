@@ -1,6 +1,6 @@
 # knack
 
-백엔드 개발자용 개인 에이전트 하네스입니다. **Claude Code**와 **Codex**의 스킬·룰·훅·서브에이전트를 이 레포 하나에서 관리합니다.
+백엔드 개발자용 개인 에이전트 하네스입니다. **Claude Code**와 **Codex**의 스킬·룰·훅·서브에이전트를 이 레포 하나에서 관리합니다. **GitHub Copilot CLI**에는 스킬·룰만 연결합니다.
 노트북이 바뀌어도 클론한 뒤 `install.sh`를 한 번 실행하면 같은 환경이 됩니다.
 개발 절차는 knack 스킬로 통일하고, [superpowers](https://github.com/obra/superpowers)와 [unlazy](https://github.com/Leonxlnx/unlazy)의 검증 규율은 그 안에 흡수했습니다([작업 규율](#작업-규율)).
 
@@ -28,6 +28,7 @@ knack help                      # 사용법
 | CLI | `bin/knack` | `~/.local/bin/knack` 링크 | 동일 |
 | 플러그인·MCP | — | 조회만 (`knack list plugins`: Claude Code·데스크톱 앱 플러그인, `knack list mcp`) | 조회만 |
 
+- Copilot CLI(`--agents copilot`, `COPILOT_HOME` 존중): 스킬은 Copilot도 읽는 `~/.agents/skills`를 Codex와 함께 쓰고, always 룰 본문과 on-demand 색인을 `~/.copilot/copilot-instructions.md` 블록에 넣습니다. 서브에이전트·훅·모델은 연결하지 않습니다.
 - 기존 설정은 보존합니다. 지시 파일은 `<!-- knack:start -->` 블록만, 훅 파일은 `--knack-hook` 표식이 있는 항목만 관리합니다.
 - `harness` 에서 개명했습니다. `knack install` 한 번으로 구 블록·훅·링크가 정리되고, `HARNESS_*` 환경변수는 당분간 함께 동작합니다.
 - 레포를 고친 뒤 `knack install`을 잊으면 `knack-stale` 훅이 다음 세션 시작 때 알려 줍니다(생성물만 해당. 스킬은 심링크라 즉시 반영).

@@ -1,6 +1,6 @@
 # knack 사용법
 
-knack 은 백엔드 개발용 개인 에이전트 하네스입니다. 에이전트(Claude Code, Codex)의 **스킬·룰·훅·서브에이전트**를 이 레포 하나에서 관리합니다.
+knack 은 백엔드 개발용 개인 에이전트 하네스입니다. 에이전트(Claude Code, Codex)의 **스킬·룰·훅·서브에이전트**를 이 레포 하나에서 관리합니다. GitHub Copilot CLI에는 스킬·룰만 연결합니다.
 요청 문장에 맞는 스킬이 자동으로 선택되고, 직접 부를 수도 있습니다.
 기본 개발 절차는 knack 스킬(`feature-implementation`, `bug-fix`, `impl-review`)이고, superpowers와 unlazy의 검증 규율을 이 안에 흡수했습니다. 무엇을 어디서 가져왔는지는 README의 "작업 규율"에 있습니다.
 

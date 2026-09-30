@@ -1,0 +1,28 @@
+# Copy to ~/.config/knack/obsidian-vault.local.yml and customize locally.
+# Keep this file generic; never put a real vault path or note content here.
+vault_path: ""
+
+daily:
+  folder: Daily
+  path_pattern: "{folder}/{YYYY}/{MM}/{YYYY-MM-DD}.md"
+  date_format: "%Y-%m-%d"
+  weekday_labels: ["월", "화", "수", "목", "금", "토", "일"]
+  frontmatter:
+    type: daily
+    date_key: date
+  headings:
+    title: "# {date} {weekday}"
+    todo: "To Do"
+    log: "Log"
+    notes: "Notes"
+    tomorrow: "Tomorrow"
+  todo:
+    section: "To Do"
+    item_format: "- [ ] {task}"
+    completed_format: "- [x] {task}"
+    default_items: []
+    carry_over:
+      enabled: false
+      source_section: "Tomorrow"
+      destination_section: "To Do"
+      marker: ""

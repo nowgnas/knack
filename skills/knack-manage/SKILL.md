@@ -37,7 +37,7 @@ description: 스킬·룰·훅·서브에이전트·모델 라우팅을 하네스
 
 ## 3. 설치 단계
 1. `knack install --dry-run`으로 변경 예정 사항을 보여주고, **사용자 승인 후** `knack install`을 실행한다.
-   - 특정 레포에만: `--project <path>`. 특정 에이전트만: `--agents claude|codex`.
+   - 특정 레포에만: `--project <path>`. 특정 에이전트만: `--agents claude|codex|copilot` (copilot 은 스킬·룰만).
    - 업데이트: `knack update` (git pull + 재설치). 제거: `knack uninstall`.
 2. `knack status`나 `knack doctor`로 결과를 확인해 보고한다.
 3. 충돌로 건너뛴 항목(`SKIP`)은 그대로 알리고, 덮어쓸지(`--force`, 백업 후 교체) 묻는다.
