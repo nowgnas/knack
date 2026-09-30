@@ -23,12 +23,14 @@ KNACK = Path(__file__).resolve().parent.parent
 HOME = Path.home()
 CODEX_HOME = Path(os.environ.get("CODEX_HOME") or HOME / ".codex")
 CLAUDE = HOME / ".claude"
+COPILOT_HOME = Path(os.environ.get("COPILOT_HOME") or HOME / ".copilot")
 
 SKILL_DIRS = {"claude": CLAUDE / "skills", "codex": HOME / ".agents" / "skills"}
 AGENT_DIR = CLAUDE / "agents"
-RULE_FILES = {"claude": CLAUDE / "CLAUDE.md", "codex": CODEX_HOME / "AGENTS.md"}
+RULE_FILES = {"claude": CLAUDE / "CLAUDE.md", "codex": CODEX_HOME / "AGENTS.md",
+              "copilot": COPILOT_HOME / "copilot-instructions.md"}
 HOOK_FILES = {"claude": CLAUDE / "settings.json", "codex": CODEX_HOME / "hooks.json"}
-EXTERNAL_SKILL_DIRS = [CLAUDE / "skills", HOME / ".agents" / "skills", CODEX_HOME / "skills"]
+EXTERNAL_SKILL_DIRS = [CLAUDE / "skills", HOME / ".agents" / "skills", CODEX_HOME / "skills", COPILOT_HOME / "skills"]
 # 데스크톱 앱(Cowork) 데이터 폴더. macOS 경로로 확인했고 Linux·Windows 는 같은 구조라고 가정한다.
 DESKTOP_DIRS = [HOME / "Library" / "Application Support" / "Claude", HOME / ".config" / "Claude"] + \
     ([Path(os.environ["APPDATA"]) / "Claude"] if os.environ.get("APPDATA") else [])
@@ -43,7 +45,8 @@ OLD_HOOK_MARK = "--harness-hook"
 BLOCK_START, BLOCK_END = "<!-- knack:start", "<!-- knack:end -->"
 TOML_START, TOML_END = "# knack:start", "# knack:end"
 OLD_BLOCKS = (("<!-- harness:start", "<!-- harness:end -->"), ("# harness:start", "# harness:end"))
-AGENTS_SUPPORTED = ("claude", "codex")
+AGENTS_SUPPORTED = ("claude", "codex")  # 모델·서브에이전트·훅까지 관리하는 에이전트
+INSTALL_TARGETS = (*AGENTS_SUPPORTED, "copilot")  # copilot 은 스킬(~/.agents/skills 공유)·룰만
 
 MODELS = KNACK / "models.json"
 TIER_RANK = {"fast": 0, "standard": 1, "deep": 2}
@@ -182,19 +185,26 @@ def block_text(path):
     return (m.group(1) if m else None), re.sub(pat, "", text, flags=re.S)
 
 
+def copilot_used():
+    """Copilot CLI 를 쓰지 않는 머신에서는 copilot 설치 상태를 '해당 없음'으로 본다."""
+    return COPILOT_HOME.is_dir()
+
+
 def skill_installed(name):
-    return {a: linked(d / name, KNACK / "skills" / name) for a, d in SKILL_DIRS.items()}
+    res = {a: linked(d / name, KNACK / "skills" / name) for a, d in SKILL_DIRS.items()}
+    res["copilot"] = res["codex"] if copilot_used() else None
+    return res
 
 
 def rule_installed(rule):
     if rule["load"] != "always":
-        return {"claude": None, "codex": None}
-    claude_block, _ = block_text(RULE_FILES["claude"])
-    codex_block, _ = block_text(RULE_FILES["codex"])
+        return {a: None for a in INSTALL_TARGETS}
+    blocks = {a: block_text(RULE_FILES[a])[0] for a in INSTALL_TARGETS}
     first = next((l for l in rule["body"].splitlines() if l.strip()), "")
     return {
-        "claude": bool(claude_block and re.search(r"^@.*/rules/" + re.escape(rule["path"].name) + r"$", claude_block, re.M)),
-        "codex": bool(codex_block and first and first in codex_block),
+        "claude": bool(blocks["claude"] and re.search(r"^@.*/rules/" + re.escape(rule["path"].name) + r"$", blocks["claude"], re.M)),
+        "codex": bool(blocks["codex"] and first and first in blocks["codex"]),
+        "copilot": bool(blocks["copilot"] and first and first in blocks["copilot"]) if copilot_used() else None,
     }
 
 
@@ -413,7 +423,7 @@ def cmd_list(a):
 
 
 def print_list(out):
-    print(f"하네스 {pretty(KNACK)} · 설치 상태 [claude codex]")
+    print(f"하네스 {pretty(KNACK)} · 설치 상태 [claude codex copilot]")
     for key, label in (("skills", "스킬"), ("rules", "룰"), ("agents", "서브에이전트"), ("hooks", "훅")):
         if key not in out:
             continue
@@ -425,7 +435,8 @@ def print_list(out):
             elif key == "hooks":
                 extra = f"({'on' if it['enabled'] else 'off'} {','.join(it['events'])}) "
             inst = it["installed"]
-            print(f"  [{mark(inst['claude'])} {mark(inst['codex'])}] {it['name']:<24} {extra}{it['summary']}")
+            marks = " ".join(mark(inst.get(a)) for a in INSTALL_TARGETS)
+            print(f"  [{marks}] {it['name']:<24} {extra}{it['summary']}")
     names = {s["name"] for s in out.get("skills", [])}
     if "external_skills" in out:
         es = out["external_skills"]
@@ -674,7 +685,7 @@ def cmd_doctor(_a):
             ok(f"persona core {rows}줄 (권장 {P.MAX_LINES}줄 이내) · 상세 {len(P.detail_topics())}개{state}")
 
     print("[설치 상태]")
-    missing = [f"skill:{s['name']}" for s in skills if not all(skill_installed(s["name"]).values())]
+    missing = [f"skill:{s['name']}" for s in skills if False in skill_installed(s["name"]).values()]
     missing += [f"agent:{g['name']}" for g in agents if False in agent_installed(g).values()]
     missing += [f"rule:{r['name']}" for r in rules if False in rule_installed(r).values()]
     missing += [f"hook:{h['name']}" for h in hooks if False in hook_installed(h).values()]

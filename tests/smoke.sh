@@ -104,6 +104,21 @@ check "빈 HOME: 설치 한 번으로 status 전부 OK" '! grep -qE "^  (STALE|M
 HOME="$FRESH" CODEX_HOME="$FRESH/.codex" "$INSTALL" --uninstall --global --agents claude,codex > /dev/null 2>&1
 check "빈 HOME: 제거하면 블록만 있던 지시 파일은 남지 않음 (0바이트 파일 X)" '[ ! -e "$FRESH/.claude/CLAUDE.md" ] && [ ! -e "$FRESH/.codex/AGENTS.md" ]'
 
+echo "▶ Copilot CLI (스킬·룰만)"
+CP="$TMP/cp"; mkdir -p "$CP/.copilot"
+printf '# my copilot rules\n' > "$CP/.copilot/copilot-instructions.md"
+cpi() { HOME="$CP" CODEX_HOME="$CP/.codex" COPILOT_HOME="$CP/.copilot" "$@"; }
+cpi "$INSTALL" --global --agents copilot > "$TMP/cp1.txt" 2>&1
+check "copilot 단독: 스킬은 ~/.agents/skills 링크" '[ "$(readlink "$CP/.agents/skills/bug-fix")" = "$KNACK_DIR/skills/bug-fix" ] && [ ! -e "$CP/.copilot/skills" ]'
+check "copilot: 지시 파일 기존 내용 보존 + 룰 본문 + 모델 색인 없음" '[ "$(head -1 "$CP/.copilot/copilot-instructions.md")" = "# my copilot rules" ] && contains "$CP/.copilot/copilot-instructions.md" "# 작업 원칙" && ! contains "$CP/.copilot/copilot-instructions.md" "load: always" && ! contains "$CP/.copilot/copilot-instructions.md" "spawn_agent"'
+check "copilot: 서브에이전트·훅은 설치하지 않음" '[ ! -e "$CP/.claude" ] && [ ! -e "$CP/.copilot/settings.json" ] && [ ! -e "$CP/.copilot/agents" ]'
+check "copilot: status 전부 OK" '! cpi "$INSTALL" --status --global --agents copilot | grep -qE "^  (STALE|MISSING|CONFLICT|BROKEN)"'
+check "copilot: list 설치 상태 표시" 'cpi python3 "$KNACK_DIR/lib/knack.py" list rules | grep -q "\[✗ ✗ ✓\] core"'
+cpi "$INSTALL" --global --agents codex,copilot > "$TMP/cp2.txt" 2>&1
+check "codex 와 함께: 스킬 폴더 공유 (중복 처리 없음)" 'contains "$TMP/cp2.txt" "SHARED" && [ "$(grep -c "agents/skills/bug-fix" "$TMP/cp2.txt")" = 1 ]'
+cpi "$INSTALL" --uninstall --global --agents copilot > /dev/null 2>&1
+check "copilot 제거: 블록만 제거, 사용자 내용 보존" '[ "$(cat "$CP/.copilot/copilot-instructions.md")" = "# my copilot rules" ]'
+
 echo "▶ 모델 라우팅 CLI"
 "$H" model > "$TMP/model.txt"
 check "model: 작업·티어·모델·위임 표" 'grep -qE "^  git +standard +sonnet +\| +gpt-5\.6-sol/medium +→ git-ops" "$TMP/model.txt" && grep -qE "^  main +세션기본 +opus\[1m\]" "$TMP/model.txt"'
@@ -131,10 +146,10 @@ printf -- '---\nname: review\ndescription: desktop plugin skill\n---\n' > "$DS/a
 printf '{"name": "anthropic-skills", "version": "1.0.0"}\n' > "$DS/skills-plugin/org/acc/.claude-plugin/plugin.json"
 printf -- '---\nname: docx\ndescription: app skill\n---\n' > "$DS/skills-plugin/org/acc/skills/docx/SKILL.md"
 "$H" list > "$TMP/list.txt"
-check "list: 스킬 설치 상태" 'contains "$TMP/list.txt" "[✓ ✓] bug-fix"'
-check "list: 서브에이전트 (claude·codex)" 'grep -q "\[✓ ✓\] git-ops" "$TMP/list.txt"'
-check "list: 룰 on-demand" 'grep -q "\[- -\] git .*(on-demand)" "$TMP/list.txt"'
-check "list: 훅 설치 상태" 'grep -q "\[✓ ✓\] guard-agent-config" "$TMP/list.txt"'
+check "list: 스킬 설치 상태 (copilot 미사용은 -)" 'contains "$TMP/list.txt" "[✓ ✓ -] bug-fix"'
+check "list: 서브에이전트 (claude·codex)" 'grep -q "\[✓ ✓ -\] git-ops" "$TMP/list.txt"'
+check "list: 룰 on-demand" 'grep -q "\[- - -\] git .*(on-demand)" "$TMP/list.txt"'
+check "list: 훅 설치 상태" 'grep -q "\[✓ ✓ -\] guard-agent-config" "$TMP/list.txt"'
 "$H" list --all > "$TMP/list-all.txt"
 check "list --all: 외부 스킬·플러그인 스킬·외부 서브에이전트" 'contains "$TMP/list-all.txt" "my-ext" && contains "$TMP/list-all.txt" "demo:foo" && contains "$TMP/list-all.txt" "my-agent.md"'
 check "list --all: 외부 훅" 'contains "$TMP/list-all.txt" "PermissionRequest" && contains "$TMP/list-all.txt" "echo hi"'

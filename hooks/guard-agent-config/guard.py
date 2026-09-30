@@ -12,7 +12,7 @@ import sys
 
 HOME_FORMS = {os.path.expanduser("~"), os.path.realpath(os.path.expanduser("~"))}
 KNACK = os.path.realpath(os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", ".."))
-PROTECTED = (".claude/skills", ".claude/agents", ".agents/skills", ".codex/skills")
+PROTECTED = (".claude/skills", ".claude/agents", ".agents/skills", ".codex/skills", ".copilot/skills")
 PREFIXES = sorted({h + "/" for h in HOME_FORMS} | {"~/", "$HOME/", "${HOME}/"})
 
 WRITE_CMD = re.compile(
