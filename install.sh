@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
-# install.sh — 하네스를 에이전트(Claude Code, Codex)에 연결한다.
+# install.sh — 하네스를 에이전트(Claude Code, Codex, Copilot CLI)에 연결한다.
 #   스킬·서브에이전트·CLI: 이 레포를 가리키는 심링크           → git pull 만으로 갱신
-#   룰: 지시 파일(CLAUDE.md / AGENTS.md)에 마커 블록 삽입       → 기존 내용 보존
+#   룰: 지시 파일(CLAUDE.md / AGENTS.md / copilot-instructions.md)에 마커 블록 삽입 → 기존 내용 보존
+#   Copilot CLI: 스킬은 ~/.agents/skills 를 Codex 와 함께 쓰고, 룰만 연결한다 (서브에이전트·훅·모델 미지원)
 #   훅: settings.json / hooks.json 에 --knack-hook 표식 항목만 추가·제거 (lib/knack.py)
 #   모델: models.json 기준으로 서브에이전트(Claude 파일·Codex 역할)와 세션 기본 모델 반영 (lib/knack.py)
 # macOS 기본 bash 3.2 호환. 훅 JSON 병합에만 python3 사용.
 set -euo pipefail
 
 KNACK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SUPPORTED="claude codex"
+SUPPORTED="claude codex copilot"
 CODEX_DIR="${CODEX_HOME:-$HOME/.codex}"
+COPILOT_DIR="${COPILOT_HOME:-$HOME/.copilot}"
 MD_START="<!-- knack:start"
 MD_END="<!-- knack:end -->"
 GIT_START="# knack:start"
@@ -82,6 +84,7 @@ fi
 if [ -z "$AGENTS" ]; then
   { [ -d "$HOME/.claude" ] || command -v claude >/dev/null 2>&1; } && AGENTS="claude"
   { [ -d "$CODEX_DIR" ] || command -v codex >/dev/null 2>&1; } && AGENTS="${AGENTS:+$AGENTS }codex"
+  { [ -d "$COPILOT_DIR" ] || command -v copilot >/dev/null 2>&1; } && AGENTS="${AGENTS:+$AGENTS }copilot"
   [ -z "$AGENTS" ] && { echo "설치된 에이전트를 찾지 못했습니다. --agents 로 지정하세요." >&2; exit 1; }
 fi
 for a in $AGENTS; do
@@ -312,7 +315,8 @@ claude_rules() {
   idx="$(models_index claude)"
   [ -z "$idx" ] || printf '\n%s\n' "$idx"
 }
-codex_rules() {
+# 룰 본문을 그대로 넣는다 (@import 를 읽지 않는 에이전트용). 인자: 모델 색인을 넣을 에이전트 (없으면 생략)
+inline_rules() {
   local f first=1 idx
   idx="$(persona_block)"
   [ -z "$idx" ] || printf '%s\n\n' "$idx"
@@ -323,8 +327,8 @@ codex_rules() {
   done < <(always_rules)
   idx="$(ondemand_index)"
   [ -z "$idx" ] || printf '\n%s\n' "$idx"
-  idx="$(models_index codex)"
-  [ -z "$idx" ] || printf '\n%s\n' "$idx"
+  [ -z "${1:-}" ] || idx="$(models_index "$1")"
+  [ -z "${1:-}" ] || [ -z "$idx" ] || printf '\n%s\n' "$idx"
 }
 
 # 링크 대상 목록을 "src<TAB>dst" 로 출력 (서브에이전트는 모델을 넣어 생성하므로 sync_models 가 처리)
@@ -337,6 +341,8 @@ targets_codex() {  # skills_dir
   local s
   for s in $(skill_names); do printf '%s\t%s\n' "$KNACK_DIR/skills/$s" "$1/$s"; done
 }
+# Copilot CLI 는 ~/.agents/skills(프로젝트는 .agents/skills)도 읽는다. Codex 와 함께 설치하면 그쪽이 처리한다
+copilot_shares_codex() { case " $AGENTS " in *" codex "*) return 0 ;; *) return 1 ;; esac; }
 
 process_links() { local src dst; while IFS="$(printf '\t')" read -r src dst; do handle_link "$src" "$dst"; done; }
 
@@ -364,8 +370,15 @@ for agent in $AGENTS; do
         prune_links "$HOME/.agents/skills"
         prune_old_names "$HOME/.agents/skills"
         sync_models codex
-        handle_block "$CODEX_DIR/AGENTS.md" "$MD_START" "$MD_END" "$(codex_rules)"
+        handle_block "$CODEX_DIR/AGENTS.md" "$MD_START" "$MD_END" "$(inline_rules codex)"
         sync_hooks codex "$CODEX_DIR/hooks.json" ;;
+      copilot)
+        if copilot_shares_codex; then say SHARED "$(pretty "$HOME/.agents/skills") (스킬은 codex 와 공유)"
+        else
+          process_links < <(targets_codex "$HOME/.agents/skills")
+          prune_links "$HOME/.agents/skills"
+        fi
+        handle_block "$COPILOT_DIR/copilot-instructions.md" "$MD_START" "$MD_END" "$(inline_rules)" ;;
     esac
   else
     case "$agent" in
@@ -378,6 +391,12 @@ for agent in $AGENTS; do
         process_links < <(targets_codex "$PROJECT/.agents/skills")
         prune_links "$PROJECT/.agents/skills"
         prune_old_names "$PROJECT/.agents/skills" ;;
+      copilot)
+        if copilot_shares_codex; then say SHARED "$(pretty "$PROJECT/.agents/skills") (스킬은 codex 와 공유)"
+        else
+          process_links < <(targets_codex "$PROJECT/.agents/skills")
+          prune_links "$PROJECT/.agents/skills"
+        fi ;;
     esac
   fi
 done
@@ -405,6 +424,8 @@ if [ "$MODE" = project ] && [ -d "$PROJECT/.git" ]; then
     if [ "$agent" = claude ]; then
       excl="$excl$(targets_claude "/.claude" | cut -f2)"$'\n'
       excl="$excl$(agent_files | sed 's|^|/.claude/agents/|')"$'\n'
+    elif [ "$agent" = copilot ] && copilot_shares_codex; then
+      continue
     else
       excl="$excl$(targets_codex "/.agents/skills" | cut -f2)"$'\n'
     fi
