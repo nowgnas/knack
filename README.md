@@ -4,6 +4,12 @@
 노트북이 바뀌어도 클론한 뒤 `install.sh`를 한 번 실행하면 같은 환경이 됩니다.
 개발 절차는 knack 스킬로 통일하고, [superpowers](https://github.com/obra/superpowers)와 [unlazy](https://github.com/Leonxlnx/unlazy)의 검증 규율은 그 안에 흡수했습니다([작업 규율](#작업-규율)).
 
+## 이름의 의미
+
+**knack**은 영어로 "요령, 솜씨, (연습으로 몸에 붙은) 재주"를 뜻합니다(*have a knack for* ~ = ~에 요령이 있다).
+에이전트는 매 세션 백지에서 시작하므로, 레포 파악·기능 구현·버그 수정·리뷰처럼 반복되는 일의 요령을 스킬·룰·훅으로 적어 두고 어느 노트북·어느 에이전트에서든 같은 솜씨로 일하게 하자는 뜻입니다.
+짧고 입력하기 쉬운 CLI 이름이기도 합니다. 예전 이름은 `harness`였고, 문서에서 "하네스"는 지금도 이 레포(에이전트 설정 묶음)를 가리킵니다.
+
 ## 빠른 시작
 
 ```bash
@@ -45,7 +51,7 @@ knack help                      # 사용법
 | `bug-fix` | 재현 → 원인 입증 → 수정 계획 → 최소 수정 → 되돌림 확인 → 영향 데이터 점검 | "이 버그 고쳐줘", "이 에러 고쳐줘" + 스택트레이스·로그 |
 | `impl-review` | 구현 맥락이 없는 리뷰어가 요약 대신 코드로 성공 기준을 대조 | "머지 전에 리뷰해줘" |
 | `persona` | 자기소개·배경을 에이전트가 쓰는 페르소나(결정 형태)로 정리 | "내 정보 등록해줘" |
-| `eli5` | 청중(나이·직무·관계)에 맞춘 설명. 외부 스킬 ([DreambigOu/ELI5](https://github.com/DreambigOu/ELI5)) | "ELI5로 설명해줘", "이거 매니저한테 설명하려면" |
+| `eli5` | 청중(나이·직무 등)에 맞춘 쉬운 설명. 외부 스킬([DreambigOu/ELI5](https://github.com/DreambigOu/ELI5), MIT)을 그대로 가져옴 | "이거 매니저한테 설명하려면" |
 | `knack-manage` | 스킬·룰·훅·서브에이전트·모델 라우팅 관리, 벤치 | "이 스킬 설치해줘", "하네스 벤치 돌려줘" |
 | `knack-help` | 사용법 안내 ([USAGE.md](skills/knack-help/USAGE.md)) | "하네스 사용법 알려줘" |
 
@@ -92,6 +98,7 @@ knack gate reverify .design/<slug>/GATES.md   # 충족된 것까지 전부 다�
 | 룰 (always) | `backend-safety` | 마이그레이션, 트랜잭션·동시성 알림, 시크릿, 운영 환경 쓰기 금지 |
 | 룰 (always) | `knack` | 에이전트 설정은 하네스로 관리, 조회는 knack CLI로 필요한 부분만 |
 | 룰 (on-demand) | `git` | 커밋·브랜치·푸시·PR |
+| 룰 (on-demand) | `obsidian-daily` | Obsidian 업무 Daily 노트 읽기·작성. 설정은 `~/.config/knack/obsidian-vault.local.yml`(양식: `templates/`) |
 | 훅 | `guard-agent-config` | 에이전트 설정 폴더에 직접 쓰는(설치·삭제) 명령을 막고 knack 명령을 안내 |
 | 훅 | `knack-stale` | 설치본이 레포와 다르면 세션 시작 때 알림 (Claude) |
 | 서브에이전트 | `impl-reviewer` | 구현 맥락 없는 독립 리뷰 (읽기 전용) |
@@ -120,6 +127,8 @@ knack add skill https://github.com/owner/repo.git --subdir skills/foo   # 외부
 knack new skill my-skill | new rule team-style | new hook my-hook       # 뼈대 생성
 knack adopt skill <이름>                                                # 외부 스킬을 하네스로 이동
 knack list plugins                                                      # Claude Code·데스크톱 앱 플러그인
+knack model set git haiku --agent claude                                # 작업 유형별 모델 변경 (적용은 knack install)
+knack run auto -- "<요청>"                                              # 요청에 맞는 모델로 새 세션 실행
 knack hook disable guard-agent-config                                   # 훅 끄기
 knack install --dry-run && knack install                                # 적용
 ```
@@ -150,6 +159,7 @@ agents/                 서브에이전트 (frontmatter task: → models.json �
 models.json             작업 유형별 모델 라우팅 (티어 → 에이전트별 모델·effort, 세션 기본 모델)
 hooks/<name>/           훅 정의(hook.json)와 스크립트
 persona/                페르소나 템플릿 (core.md·detail/ 은 gitignore)
+templates/              사용자별 설정 양식 (예: obsidian-vault.local.yml.example. 실제 값은 레포 밖에 둠)
 lib/knack.py            조회·관리·훅·모델 동기화 (python3 표준 라이브러리)
 lib/usage.py            세션 로그 토큰 집계 (knack usage)
 lib/bench.py            작업 세트 조건별 실행·비교 (knack bench)

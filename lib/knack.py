@@ -1175,6 +1175,29 @@ def set_block(text, start, end, content):
     return f"{base}\n\n{block}\n" if base else block + "\n"
 
 
+def restore_toml_start(text):
+    """Codex 가 config.toml 을 다시 쓰며 시작 마커만 지우면 set_block 이 블록을 못 찾고
+    같은 [agents.*] 를 또 붙여 TOML 이 깨진다."""
+    if TOML_START in text:
+        return text
+    lines = text.split("\n")
+    end = next((i for i, l in enumerate(lines) if l.lstrip().startswith(TOML_END)), None)
+    if end is None:
+        return text
+    ours = {f"agents.{g['name']}" for g in knack_agents()}
+    start = end
+    for i in range(end - 1, -1, -1):
+        m = re.match(r"\s*\[\[?([^\]]*)\]", lines[i])
+        if not m:
+            continue
+        # 사용자 테이블을 만나면 멈춰야 블록 교체가 그 테이블을 지우지 않는다
+        if re.sub(r"[\s\"']", "", m.group(1)) not in ours:
+            break
+        start = i
+    lines[end] = lines[end].lstrip()  # set_block 은 줄 맨 앞의 마커만 인식한다
+    return "\n".join(lines[:start] + [TOML_START] + lines[start:])
+
+
 def toml_top(text, key):
     for line in text.split("\n"):
         if re.match(r"\s*\[", line):
@@ -1432,9 +1455,10 @@ def cmd_models_sync(a):
 
         f = CODEX_CONFIG
         text = f.read_text(encoding="utf-8") if f.is_file() else ""
-        has_block = TOML_START in text
+        restored = restore_toml_start(text)
+        has_block = TOML_START in restored
         new = text if removing and not has_block else \
-            set_block(text, TOML_START, TOML_END, None if removing else codex_roles_block())
+            set_block(restored, TOML_START, TOML_END, None if removing else codex_roles_block())
         if new != text:
             if status:
                 say("STALE" if has_block else "MISSING", f"{pretty(f)} (서브에이전트 역할 블록)")
