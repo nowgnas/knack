@@ -9,6 +9,7 @@ KNACK_DIR="$TMP/knack"; mkdir -p "$KNACK_DIR"
 (cd "$REPO_DIR" && tar cf - --exclude .git .) | (cd "$KNACK_DIR" && tar xf -)
 cp "$REPO_DIR/tests/fixtures/models.json" "$KNACK_DIR/models.json"
 export HOME="$TMP/home" CODEX_HOME="$TMP/home/.codex"
+unset ORCA_CODEX_HOME
 mkdir -p "$HOME/.claude/agents" "$CODEX_HOME"
 INSTALL="$KNACK_DIR/install.sh"
 H="$HOME/.local/bin/knack"
@@ -100,6 +101,10 @@ sum1="$(snap)"
 "$INSTALL" --global --agents claude,codex > "$TMP/out2.txt"
 check "두 번째 실행은 변경 0건" 'contains "$TMP/out2.txt" "변경 0건"'
 check "설정 파일 내용 동일" '[ "$sum1" = "$(snap)" ]'
+# Orca 는 ~/.codex 를 런타임 폴더로 복사해 CODEX_HOME·ORCA_CODEX_HOME 으로 넘긴다. 대상은 원본 ~/.codex 여야 한다
+ORCA_RT="$TMP/orca-runtime"; mkdir -p "$ORCA_RT"
+CODEX_HOME="$ORCA_RT" ORCA_CODEX_HOME="$ORCA_RT" "$INSTALL" --status --global --agents codex > "$TMP/orca-status.txt" 2>&1
+check "Orca 런타임 CODEX_HOME 이면 ~/.codex 를 대상으로 함" '! contains "$TMP/orca-status.txt" "orca-runtime" && contains "$TMP/orca-status.txt" "/.codex/config.toml" && ! grep -qE "^  (STALE|MISSING)" "$TMP/orca-status.txt" && [ -z "$(ls -A "$ORCA_RT")" ]'
 # 빈 config.toml(새 머신)에서는 최상위 키 삽입 간격 때문에 한 번 더 설치해야 수렴하던 적이 있다
 FRESH="$TMP/fresh"; mkdir -p "$FRESH/.codex"
 HOME="$FRESH" CODEX_HOME="$FRESH/.codex" "$INSTALL" --global --agents claude,codex > "$TMP/fresh1.txt" 2>&1
@@ -443,6 +448,9 @@ check "세션 모델 반영: Claude settings.json" 'python3 -c "import json; ass
 check "세션 모델 반영: Codex config.toml ($TOML_NOTE)" 'grep -q "^model_reasoning_effort = \"low\"$" "$CODEX_HOME/config.toml" && grep -q "^model = \"gpt-5.6-luna\"$" "$CODEX_HOME/config.toml" && contains "$CODEX_HOME/config.toml" "[mcp_servers.cx]" && toml_ok "$CODEX_HOME/config.toml"'
 check "변경된 작업 모델이 서브에이전트에 반영" 'grep -q "^model: haiku$" "$HOME/.claude/agents/git-ops.md"'
 check "복사본 doctor 문제 없음" '"$CH" doctor > "$TMP/doctor2.txt" 2>&1; grep -q "문제 0" "$TMP/doctor2.txt"'
+# 복사본은 git 저장소가 아니라 pull 을 시도하면 실패한다
+check "update --help 는 pull 없이 도움말만" '"$CH" update --help > "$TMP/update-help.txt" 2>&1 && contains "$TMP/update-help.txt" "사용법: install.sh"'
+check "update --dry-run 은 pull 없이 설치 계획만" '"$CH" update --dry-run --agents claude > "$TMP/update-dry.txt" 2>&1 && contains "$TMP/update-dry.txt" "dry-run 완료"'
 "$C/install.sh" --uninstall --agents claude,codex > /dev/null
 
 echo "▶ 사용량 집계 (knack usage)"

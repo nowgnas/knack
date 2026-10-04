@@ -11,6 +11,8 @@ set -euo pipefail
 KNACK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SUPPORTED="claude codex copilot"
 CODEX_DIR="${CODEX_HOME:-$HOME/.codex}"
+# Orca 는 ~/.codex 를 런타임 폴더로 복사해 CODEX_HOME 으로 넘긴다. 사본에 설치하면 다음 동기화 때 덮어써진다
+[ "$CODEX_DIR" = "${ORCA_CODEX_HOME:-}" ] && CODEX_DIR="$HOME/.codex"
 COPILOT_DIR="${COPILOT_HOME:-$HOME/.copilot}"
 MD_START="<!-- knack:start"
 MD_END="<!-- knack:end -->"
