@@ -21,7 +21,9 @@ import usage as U
 
 KNACK = Path(__file__).resolve().parent.parent
 HOME = Path.home()
-CODEX_HOME = Path(os.environ.get("CODEX_HOME") or HOME / ".codex")
+# Orca 는 ~/.codex 를 런타임 폴더로 복사해 CODEX_HOME 으로 넘긴다. 사본에 설치하면 다음 동기화 때 덮어써진다
+_codex_env = os.environ.get("CODEX_HOME")
+CODEX_HOME = HOME / ".codex" if not _codex_env or _codex_env == os.environ.get("ORCA_CODEX_HOME") else Path(_codex_env)
 CLAUDE = HOME / ".claude"
 COPILOT_HOME = Path(os.environ.get("COPILOT_HOME") or HOME / ".copilot")
 

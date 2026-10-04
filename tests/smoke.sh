@@ -9,6 +9,7 @@ KNACK_DIR="$TMP/knack"; mkdir -p "$KNACK_DIR"
 (cd "$REPO_DIR" && tar cf - --exclude .git .) | (cd "$KNACK_DIR" && tar xf -)
 cp "$REPO_DIR/tests/fixtures/models.json" "$KNACK_DIR/models.json"
 export HOME="$TMP/home" CODEX_HOME="$TMP/home/.codex"
+unset ORCA_CODEX_HOME
 mkdir -p "$HOME/.claude/agents" "$CODEX_HOME"
 INSTALL="$KNACK_DIR/install.sh"
 H="$HOME/.local/bin/knack"
@@ -100,6 +101,10 @@ sum1="$(snap)"
 "$INSTALL" --global --agents claude,codex > "$TMP/out2.txt"
 check "두 번째 실행은 변경 0건" 'contains "$TMP/out2.txt" "변경 0건"'
 check "설정 파일 내용 동일" '[ "$sum1" = "$(snap)" ]'
+# Orca 는 ~/.codex 를 런타임 폴더로 복사해 CODEX_HOME·ORCA_CODEX_HOME 으로 넘긴다. 대상은 원본 ~/.codex 여야 한다
+ORCA_RT="$TMP/orca-runtime"; mkdir -p "$ORCA_RT"
+CODEX_HOME="$ORCA_RT" ORCA_CODEX_HOME="$ORCA_RT" "$INSTALL" --status --global --agents codex > "$TMP/orca-status.txt" 2>&1
+check "Orca 런타임 CODEX_HOME 이면 ~/.codex 를 대상으로 함" '! contains "$TMP/orca-status.txt" "orca-runtime" && contains "$TMP/orca-status.txt" "/.codex/config.toml" && ! grep -qE "^  (STALE|MISSING)" "$TMP/orca-status.txt" && [ -z "$(ls -A "$ORCA_RT")" ]'
 # 빈 config.toml(새 머신)에서는 최상위 키 삽입 간격 때문에 한 번 더 설치해야 수렴하던 적이 있다
 FRESH="$TMP/fresh"; mkdir -p "$FRESH/.codex"
 HOME="$FRESH" CODEX_HOME="$FRESH/.codex" "$INSTALL" --global --agents claude,codex > "$TMP/fresh1.txt" 2>&1
