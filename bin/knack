@@ -42,7 +42,14 @@ case "$cmd" in
   status)    exec "$KNACK_DIR/install.sh" --status "$@" ;;
   install)   exec "$KNACK_DIR/install.sh" "$@" ;;
   reinstall) exec "$KNACK_DIR/install.sh" --reinstall "$@" ;;
-  update)    git -C "$KNACK_DIR" pull --ff-only && exec "$KNACK_DIR/install.sh" --global "$@" ;;
+  update)
+    case " $* " in
+      *" -h "*|*" --help "*) exec "$KNACK_DIR/install.sh" --help ;;
+      *" --dry-run "*)  # 아무것도 바꾸지 않아야 하므로 pull 대신 받을 커밋만 보여준다
+        { git -C "$KNACK_DIR" fetch -q && echo "받을 커밋 (pull 하지 않음):" && git -C "$KNACK_DIR" log --oneline 'HEAD..@{u}'; } 2>/dev/null || true
+        exec "$KNACK_DIR/install.sh" --global "$@" ;;
+    esac
+    git -C "$KNACK_DIR" pull --ff-only && exec "$KNACK_DIR/install.sh" --global "$@" ;;
   uninstall) exec "$KNACK_DIR/install.sh" --uninstall "$@" ;;
   scan)      exec bash "$KNACK_DIR/skills/repo-onboarding/scripts/repo-scan.sh" "${1:-.}" ;;
   test)      exec bash "$KNACK_DIR/tests/smoke.sh" ;;

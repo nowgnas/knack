@@ -448,6 +448,9 @@ check "세션 모델 반영: Claude settings.json" 'python3 -c "import json; ass
 check "세션 모델 반영: Codex config.toml ($TOML_NOTE)" 'grep -q "^model_reasoning_effort = \"low\"$" "$CODEX_HOME/config.toml" && grep -q "^model = \"gpt-5.6-luna\"$" "$CODEX_HOME/config.toml" && contains "$CODEX_HOME/config.toml" "[mcp_servers.cx]" && toml_ok "$CODEX_HOME/config.toml"'
 check "변경된 작업 모델이 서브에이전트에 반영" 'grep -q "^model: haiku$" "$HOME/.claude/agents/git-ops.md"'
 check "복사본 doctor 문제 없음" '"$CH" doctor > "$TMP/doctor2.txt" 2>&1; grep -q "문제 0" "$TMP/doctor2.txt"'
+# 복사본은 git 저장소가 아니라 pull 을 시도하면 실패한다
+check "update --help 는 pull 없이 도움말만" '"$CH" update --help > "$TMP/update-help.txt" 2>&1 && contains "$TMP/update-help.txt" "사용법: install.sh"'
+check "update --dry-run 은 pull 없이 설치 계획만" '"$CH" update --dry-run --agents claude > "$TMP/update-dry.txt" 2>&1 && contains "$TMP/update-dry.txt" "dry-run 완료"'
 "$C/install.sh" --uninstall --agents claude,codex > /dev/null
 
 echo "▶ 사용량 집계 (knack usage)"
