@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 # smoke.sh — 임시 HOME 에서 설치·조회·관리·훅·모델 라우팅을 검증한다. 실제 설정과 이 레포는 건드리지 않는다.
 set -u
-KNACK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TMP="$(mktemp -d)"
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+TMP="$(cd "$(mktemp -d)" && pwd -P)"
 trap 'rm -rf "$TMP"' EXIT
+# 레포 models.json 은 사용자가 바꾸는 값이라, 고정 픽스처를 넣은 복사본에서 검증한다
+KNACK_DIR="$TMP/knack"; mkdir -p "$KNACK_DIR"
+(cd "$REPO_DIR" && tar cf - --exclude .git .) | (cd "$KNACK_DIR" && tar xf -)
+cp "$REPO_DIR/tests/fixtures/models.json" "$KNACK_DIR/models.json"
 export HOME="$TMP/home" CODEX_HOME="$TMP/home/.codex"
 mkdir -p "$HOME/.claude/agents" "$CODEX_HOME"
 INSTALL="$KNACK_DIR/install.sh"
@@ -41,7 +45,7 @@ for f in "$KNACK_DIR"/rules/*.md; do
   check "rule $(basename "$f"): name·description·load" 'grep -q "^name: " "$f" && grep -q "^description: " "$f" && grep -qE "^load: (always|on-demand)$" "$f"'
 done
 check "USAGE.md 에 모든 스킬 안내" '( for s in $(ls "$KNACK_DIR/skills"); do grep -q "\`$s\`" "$KNACK_DIR/skills/knack-help/USAGE.md" || exit 1; done )'
-check "knack doctor (레포 구조·모델 라우팅) 문제 없음" 'python3 "$KNACK_DIR/lib/knack.py" doctor > "$TMP/doctor0.txt" 2>&1 || grep -q "문제 0" "$TMP/doctor0.txt"'
+check "knack doctor (레포 구조·모델 라우팅) 문제 없음" 'python3 "$REPO_DIR/lib/knack.py" doctor > "$TMP/doctor0.txt" 2>&1 || grep -q "문제 0" "$TMP/doctor0.txt"'
 
 echo "▶ 글로벌 설치"
 printf '@RTK.md\n' > "$HOME/.claude/CLAUDE.md"
