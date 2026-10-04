@@ -1,0 +1,59 @@
+{
+  "tiers": {
+    "claude": {
+      "deep": { "model": "opus" },
+      "standard": { "model": "sonnet" },
+      "fast": { "model": "haiku" }
+    },
+    "codex": {
+      "deep": { "model": "gpt-6-astra", "effort": "high" },
+      "standard": { "model": "gpt-5.6-sol", "effort": "medium" },
+      "fast": { "model": "gpt-5.6-luna", "effort": "low" }
+    }
+  },
+  "usage_weights": {
+    "claude": { "input": 1.0, "cache_write": 1.25, "cache_read": 0.1, "output": 5.0 },
+    "codex": { "input": 1.0, "cache_write": 1.0, "cache_read": 0.1, "output": 8.0 }
+  },
+  "main": {
+    "claude": { "model": "opus[1m]" },
+    "codex": { "model": "gpt-5.6-luna", "effort": "medium" }
+  },
+  "tasks": {
+    "design": {
+      "tier": "deep",
+      "desc": "설계·정책 점검·아키텍처 판단",
+      "keywords": ["설계", "아키텍처", "정책", "ADR", "design", "architecture"]
+    },
+    "implement": {
+      "tier": "deep",
+      "desc": "기능 구현·버그 수정·리팩토링",
+      "keywords": ["구현", "개발", "기능 추가", "버그", "고쳐", "리팩토링", "implement", "fix", "refactor"]
+    },
+    "review": {
+      "tier": "deep",
+      "desc": "독립 코드 리뷰",
+      "keywords": ["리뷰", "검토", "review"]
+    },
+    "explore": {
+      "tier": "standard",
+      "desc": "코드 탐색·온보딩·흐름 추적",
+      "keywords": ["파악", "온보딩", "구조", "흐름", "어떻게 동작", "분석", "onboard", "explain", "trace"]
+    },
+    "git": {
+      "tier": "standard",
+      "desc": "커밋·푸시·브랜치·PR",
+      "keywords": ["커밋", "푸시", "브랜치", "머지", "리베이스", "태그", "PR", "commit", "push", "branch", "merge", "rebase", "pull request"]
+    },
+    "docs": {
+      "tier": "standard",
+      "desc": "문서·요약·README",
+      "keywords": ["문서", "README", "요약", "changelog", "docs"]
+    },
+    "lookup": {
+      "tier": "fast",
+      "desc": "단순 조회·설명",
+      "keywords": ["목록", "뭐야", "알려줘", "찾아줘", "list", "what is"]
+    }
+  }
+}
