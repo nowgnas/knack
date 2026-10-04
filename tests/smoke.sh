@@ -107,6 +107,18 @@ HOME="$FRESH" CODEX_HOME="$FRESH/.codex" "$INSTALL" --status --global --agents c
 check "빈 HOME: 설치 한 번으로 status 전부 OK" '! grep -qE "^  (STALE|MISSING|CONFLICT|BROKEN)" "$TMP/fresh-status.txt"'
 HOME="$FRESH" CODEX_HOME="$FRESH/.codex" "$INSTALL" --uninstall --global --agents claude,codex > /dev/null 2>&1
 check "빈 HOME: 제거하면 블록만 있던 지시 파일은 남지 않음 (0바이트 파일 X)" '[ ! -e "$FRESH/.claude/CLAUDE.md" ] && [ ! -e "$FRESH/.codex/AGENTS.md" ]'
+# Codex 가 config.toml 을 다시 쓰면서 시작 마커·설명 주석만 지우고 역할 테이블과 끝 마커는 남긴 경우
+ORPH="$TMP/orphan"; mkdir -p "$ORPH/.codex"
+printf 'model = "x"\n\n[mcp_servers.cx]\ncommand = "y"\n' > "$ORPH/.codex/config.toml"
+HOME="$ORPH" CODEX_HOME="$ORPH/.codex" "$INSTALL" --global --agents codex > /dev/null 2>&1
+grep -v -e "^# knack:start" -e "^# 하네스 서브에이전트 역할" "$ORPH/.codex/config.toml" > "$TMP/orphan.toml" && cp "$TMP/orphan.toml" "$ORPH/.codex/config.toml"
+check "시작 마커가 지워진 config.toml: status 는 STALE" 'HOME="$ORPH" CODEX_HOME="$ORPH/.codex" "$INSTALL" --status --global --agents codex 2>&1 | grep -q "STALE .*config.toml (서브에이전트 역할 블록)"'
+HOME="$ORPH" CODEX_HOME="$ORPH/.codex" "$INSTALL" --global --agents codex > /dev/null 2>&1
+check "시작 마커가 지워진 config.toml: 역할 테이블 중복 없이 블록 복구 ($TOML_NOTE)" '[ "$(grep -c "^\[agents.git-ops\]" "$ORPH/.codex/config.toml")" = 1 ] && [ "$(grep -c "^# knack:start" "$ORPH/.codex/config.toml")" = 1 ] && [ "$(grep -c "^# knack:end" "$ORPH/.codex/config.toml")" = 1 ] && contains "$ORPH/.codex/config.toml" "[mcp_servers.cx]" && toml_ok "$ORPH/.codex/config.toml"'
+check "시작 마커 복구 후 다시 설치하면 변경 0건" 'HOME="$ORPH" CODEX_HOME="$ORPH/.codex" "$INSTALL" --global --agents codex 2>&1 | grep -q "변경 0건"'
+grep -v -e "^# knack:start" -e "^# 하네스 서브에이전트 역할" "$ORPH/.codex/config.toml" > "$TMP/orphan.toml" && cp "$TMP/orphan.toml" "$ORPH/.codex/config.toml"
+HOME="$ORPH" CODEX_HOME="$ORPH/.codex" "$INSTALL" --uninstall --global --agents codex > /dev/null 2>&1
+check "시작 마커가 지워진 config.toml: 제거하면 역할 테이블·끝 마커 없이 사용자 설정만 남음" '! contains "$ORPH/.codex/config.toml" "[agents." && ! contains "$ORPH/.codex/config.toml" "# knack:end" && contains "$ORPH/.codex/config.toml" "[mcp_servers.cx]"'
 
 echo "▶ Copilot CLI (스킬·룰만)"
 CP="$TMP/cp"; mkdir -p "$CP/.copilot"
