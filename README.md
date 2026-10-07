@@ -52,6 +52,7 @@ knack help                      # 사용법
 | `impl-review` | 구현 맥락이 없는 리뷰어가 요약 대신 코드로 성공 기준을 대조 | "머지 전에 리뷰해줘" |
 | `persona` | 자기소개·배경을 에이전트가 쓰는 페르소나(결정 형태)로 정리 | "내 정보 등록해줘" |
 | `eli5` | 청중(나이·직무 등)에 맞춘 쉬운 설명. 외부 스킬([DreambigOu/ELI5](https://github.com/DreambigOu/ELI5), MIT)을 그대로 가져옴 | "이거 매니저한테 설명하려면" |
+| `ste-explain` | ASD-STE100(통제 영어) 문체 설명. `strict`·`80`·`ko` 세 모드 | "STE로 설명해줘" |
 | `knack-manage` | 스킬·룰·훅·서브에이전트·모델 라우팅 관리, 벤치 | "이 스킬 설치해줘", "하네스 벤치 돌려줘" |
 | `knack-help` | 사용법 안내 ([USAGE.md](skills/knack-help/USAGE.md)) | "하네스 사용법 알려줘" |
 
