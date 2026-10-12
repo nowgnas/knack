@@ -250,8 +250,14 @@ def hook_installed(hook):
 
 # ── 외부 항목 (조회 전용) ──────────────────────
 def plugin_skills(root):
+    """플러그인이 담은 스킬 이름. 선언 목록(plugin.json)이 있으면 그것을 믿는다.
+    선언이 없을 때만 skills/ 를 재귀로 훑는다 — 플러그인마다 깊이가 달라서
+    skills/<분류>/<이름>/SKILL.md 처럼 한 단 더 들어간 배치도 있다."""
+    declared = (load_json(root / ".claude-plugin" / "plugin.json") or {}).get("skills")
+    if isinstance(declared, list):
+        return sorted({Path(s).name for s in declared if isinstance(s, str) and s})
     d = root / "skills"
-    return sorted(s.name for s in d.iterdir() if (s / "SKILL.md").is_file()) if d.is_dir() else []
+    return sorted({f.parent.name for f in d.rglob("SKILL.md")}) if d.is_dir() else []
 
 
 def plugins():
@@ -670,8 +676,20 @@ def cmd_doctor(_a):
     dups = sorted({s["name"] for s in skills} & set(ext))
     for d in dups:
         warn(f"스킬 '{d}' 가 하네스와 외부({', '.join(ext[d])})에 모두 있음 → 설치 시 SKIP (교체: knack install --force)")
-    if not dups:
-        ok(f"하네스 스킬과 같은 이름의 외부 스킬 없음 (외부 스킬 {len(ext)}개)")
+    # 기능 중복: 스킬이 frontmatter overlaps 로 선언한 외부 스킬이 실제로 깔려 있는지.
+    # 이름이 달라도 같은 요청을 받는 스킬은 어느 절차를 타는지 흔들리므로 알린다.
+    overlaps = []
+    for sk in skills:
+        declared = [n.strip() for n in (sk["meta"].get("overlaps") or "").split(",") if n.strip()]
+        hit = [n for n in declared if n in ext]
+        if hit:
+            overlaps.append((sk["name"], hit))
+    if overlaps:
+        warn(f"기능 중복 {len(overlaps)}건 — 같은 의도의 외부 스킬이 있습니다 (하네스 쪽이 정본)")
+        for name, hit in overlaps:
+            print(f"      {name} ↔ {', '.join(hit)}")
+    if not dups and not overlaps:
+        ok(f"하네스 스킬과 겹치는 외부 스킬 없음 (외부 스킬 {len(ext)}개)")
 
     print("[페르소나]")
     P = __import__("persona")
@@ -1044,6 +1062,11 @@ def task_agents():
     return out
 
 
+def agent_when():
+    """서브에이전트 frontmatter 의 when: — 위임할 조건. 작은 작업은 위임이 더 느려서 조건을 함께 싣는다."""
+    return {g["name"]: g["meta"]["when"] for g in knack_agents() if g["meta"].get("when")}
+
+
 def models_problems():
     cfg = load_models(safe=True)
     if cfg is None:
@@ -1102,7 +1125,7 @@ def tier_rank_of(cfg, agent, model):
 
 def models_index(cfg, agent):
     """지시 파일 블록에 넣는 작업 유형별 모델 색인 (몇 줄로 짧게)."""
-    delegates, main = task_agents(), resolve_model(cfg, "main", agent)
+    delegates, main, whens = task_agents(), resolve_model(cfg, "main", agent), agent_when()
     main_rank = tier_rank_of(cfg, agent, main[0])
     lines, in_session, upgrade = ["작업 유형별 모델 (`knack model` 로 조회·변경):"], [], []
     for name, t in cfg["tasks"].items():
@@ -1110,7 +1133,8 @@ def models_index(cfg, agent):
         if name in delegates:
             who = ", ".join(f"`{d}`" for d in delegates[name])
             how = "서브에이전트에 위임" if agent == "claude" else "역할로 위임 (spawn_agent)"
-            lines.append(f"- {t['desc']} → {who} {how} · {label}")
+            cond = " / ".join(w for w in (whens.get(d) for d in delegates[name]) if w)
+            lines.append(f"- {t['desc']} → {who} {how} · {label}" + (f" — 조건: {cond}" if cond else ""))
         else:
             in_session.append(t["desc"])
             if main_rank >= 0 and TIER_RANK.get(t["tier"], 0) > main_rank:
@@ -1266,7 +1290,11 @@ def cmd_model(a):
         for agent in AGENTS_SUPPORTED:
             print(f"  {agent:<6} {model_label(*resolve_model(cfg, task, agent))}")
         if task_agents().get(task):
-            print(f"  위임: {', '.join(task_agents()[task])}")
+            names, whens = task_agents()[task], agent_when()
+            print(f"  위임: {', '.join(names)}")
+            for n in names:
+                if whens.get(n):
+                    print(f"    조건: {whens[n]}")
     else:
         cmd_model_set(cfg, a)
 
@@ -1662,7 +1690,7 @@ def main():
     sub.add_parser("persona-block")
 
     s = sub.add_parser("gate", help="GATES.md 완료 게이트 확인·실행·재검증",
-                       epilog="예:\n  knack gate status .design/20260914-refund/GATES.md   # 실행 없이 상태·경고\n"
+                       epilog="예:\n  knack gate status .design/refund/GATES.md   # 실행 없이 상태·경고\n"
                               "  knack gate run <GATES.md>        # 미충족 자동 게이트만 실행\n"
                               "  knack gate reverify <GATES.md>   # 충족된 것까지 전부 다시 실행\n"
                               "종료 코드: 0 ALL MET · 1 미충족 또는 포기 · 2 형식 오류",

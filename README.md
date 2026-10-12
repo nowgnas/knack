@@ -73,7 +73,7 @@ knack help                      # 사용법
 | 고위험 변경은 설계 때 `GATES.md` 승인, 보고 직전 전부 재실행, 불가능한 게이트는 인계 | unlazy `GATES.md`·`--reverify`·`ABANDON` | ref `high-risk-gates`, `knack gate` |
 
 가져오지 않은 것:
-- superpowers의 brainstorming·writing-plans·executing-plans·subagent-driven 개발 흐름 — 정책 점검과 `DESIGN.md` 설계 게이트가 같은 역할을 합니다.
+- superpowers의 brainstorming·writing-plans·executing-plans·subagent-driven 개발 흐름 — 정책 점검과 `PLAN.md` 설계 게이트가 같은 역할을 합니다.
 - superpowers의 "테스트 없이 짠 코드는 삭제" 규칙과 압박성 문구 — 레거시 백엔드에는 과합니다.
 - superpowers의 worktree·브랜치 마무리 — `git-ops` 서브에이전트가 맡습니다.
 - unlazy의 Depth Tree·병렬 fan-out·stop 훅 — 기능 하나·버그 하나 단위 작업에는 필요 없고 토큰 비용이 큽니다.
@@ -100,7 +100,7 @@ knack gate reverify .design/<slug>/GATES.md   # 충족된 것까지 전부 다�
 | 룰 (always) | `knack` | 에이전트 설정은 하네스로 관리, 조회는 knack CLI로 필요한 부분만 |
 | 룰 (on-demand) | `git` | 커밋·브랜치·푸시·PR |
 | 룰 (on-demand) | `obsidian-daily` | Obsidian 업무 Daily 노트 읽기·작성. 설정은 `~/.config/knack/obsidian-vault.local.yml`(양식: `templates/`) |
-| 훅 | `guard-agent-config` | 에이전트 설정 폴더에 직접 쓰는(설치·삭제) 명령을 막고 knack 명령을 안내 |
+| 훅 | `guard-agent-config` | 에이전트 설정 폴더에 직접 쓰는(설치·삭제) 명령과 지시·설정 파일의 knack 블록 수정을 막고 knack 명령을 안내 |
 | 훅 | `knack-stale` | 설치본이 레포와 다르면 세션 시작 때 알림 (Claude) |
 | 서브에이전트 | `impl-reviewer` | 구현 맥락 없는 독립 리뷰 (읽기 전용) |
 | 서브에이전트 | `repo-explorer` | 읽기 전용 코드 탐색 |
@@ -148,7 +148,7 @@ knack bench baseline                                # baseline 에서 빠지는 
 ## 알려진 한계
 
 - 조회 규율(문서를 `--section`으로 잘라 읽기)은 룰로만 안내합니다. 에이전트가 파일을 통째로 읽어도 막거나 알리지 않습니다. `impl-reviewer`처럼 체크리스트를 통째로 읽는 것이 맞는 경우가 있어 강제하지 않습니다.
-- `guard-agent-config`는 판단할 수 없는 입력을 통과시킵니다(fail-open). 명령을 `;`·`&&`·`||`·`|`로 나누고 `cd`를 따라가며 조각마다 판정하지만, 경로를 변수에 담거나 스크립트 파일 안에서 쓰는 경우는 보지 못합니다.
+- `guard-agent-config`는 판단할 수 없는 입력을 통과시킵니다(fail-open). 명령을 `;`·`&&`·`||`·`|`로 나누고 `cd`를 따라가며 조각마다 판정합니다. 쓰기 여부는 명령 이름(`cp`·`rm`·`tee`·`sed -i` 등)과 리다이렉트 대상으로만 보고, 따옴표 안과 히어독 본문은 데이터로 취급합니다 — 보호 경로를 읽거나 문서에 적는 작업은 막지 않습니다. 대신 경로를 변수에 담거나 스크립트 파일 안에서 쓰는 경우는 보지 못합니다.
 - 하네스의 효과(토큰·통과율)는 아직 측정 결과가 없습니다. `knack bench ab`로 잴 수 있습니다.
 
 ## 구조
@@ -156,7 +156,8 @@ knack bench baseline                                # baseline 에서 빠지는 
 ```
 rules/                  룰 (frontmatter: name, description, load: always|on-demand, when)
 skills/<name>/          에이전트 중립 스킬 (SKILL.md + references/ templates/ scripts/)
-agents/                 서브에이전트 (frontmatter task: → models.json 의 작업 유형)
+                        frontmatter overlaps: 는 같은 의도의 외부 스킬 이름 — doctor 가 설치 여부를 확인해 알린다
+agents/                 서브에이전트 (frontmatter task: → models.json 의 작업 유형, when: → 위임 조건)
 models.json             작업 유형별 모델 라우팅 (티어 → 에이전트별 모델·effort, 세션 기본 모델)
 hooks/<name>/           훅 정의(hook.json)와 스크립트
 persona/                페르소나 템플릿 (core.md·detail/ 은 gitignore)

@@ -220,6 +220,37 @@ allow_case "작업 폴더가 보호 폴더여도 읽기" "{\"tool_name\":\"Bash\
 allow_case "조각별 판정: 보호 폴더 읽기 ; 다른 곳 rm" '{"tool_name":"Bash","tool_input":{"command":"ls ~/.claude/skills; rm -rf /tmp/x"}}'
 allow_case "cd 하네스 && knack install" '{"tool_name":"Bash","tool_input":{"command":"cd ~/harness && knack install"}}'
 
+# 오탐: 보호 경로를 읽거나, 문자열·히어독에 적는 작업은 막지 않는다
+allow_case "보호 폴더 grep → /tmp 리다이렉트" '{"tool_name":"Bash","tool_input":{"command":"grep -rn foo ~/.claude/skills > /tmp/out.txt"}}'
+allow_case "문자열 안에 적힌 쓰기 명령" '{"tool_name":"Bash","tool_input":{"command":"echo \"rm -rf ~/.claude/skills/x\" >> /tmp/note.md"}}'
+allow_case "히어독 본문의 예시 명령" '{"tool_name":"Bash","tool_input":{"command":"cat <<EOF > /tmp/doc.md\ncp a ~/.claude/agents/b.md\nEOF"}}'
+allow_case "보호 폴더 sed 읽기 (-i 없음)" '{"tool_name":"Bash","tool_input":{"command":"sed -n 1,5p ~/.claude/skills/x/SKILL.md"}}'
+deny_case "보호 폴더 sed -i" '{"tool_name":"Bash","tool_input":{"command":"sed -i.bak s/a/b/ ~/.claude/agents/git-ops.md"}}'
+deny_case "리다이렉트로 보호 폴더 덮어쓰기" '{"tool_name":"Bash","tool_input":{"command":"cat x > ~/.claude/agents/new.md"}}'
+deny_case "따옴표로 감싼 리다이렉트 대상" '{"tool_name":"Bash","tool_input":{"command":"echo x > \"$HOME/.claude/agents/new.md\""}}'
+
+# 지시·설정 파일의 knack 블록: 블록을 건드리는 편집만 막는다
+pay() {
+  python3 - "$@" <<'PYEOF'
+import json, sys
+ti = {}
+for item in sys.argv[2:]:
+    k, _, v = item.partition("=")
+    ti[k] = v
+print(json.dumps({"tool_name": sys.argv[1], "tool_input": ti}, ensure_ascii=False))
+PYEOF
+}
+BLK="$TMP/instr.md"; printf 'before\n<!-- knack:start -->\nmanaged\n<!-- knack:end -->\nafter\n' > "$BLK"
+TOML="$TMP/config.toml"; printf 'x = 1\n# knack:start\n[agents.a]\nmodel = "s"\n# knack:end\n' > "$TOML"
+deny_case "블록 안 Edit" "$(pay Edit file_path="$BLK" old_string=managed new_string=x)"
+deny_case "블록 마커를 담은 Edit" "$(pay Edit file_path="$BLK" old_string='<!-- knack:start -->' new_string=x)"
+allow_case "블록 밖 Edit" "$(pay Edit file_path="$BLK" old_string=after new_string=x)"
+deny_case "블록 있는 파일 Write 덮어쓰기" "$(pay Write file_path="$BLK" content='새 내용')"
+allow_case "블록을 그대로 담은 Write" "$(pay Write file_path="$BLK" content="$(cat "$BLK")")"
+deny_case "블록 있는 파일 리다이렉트 덮어쓰기" "$(pay Bash command="echo x > $BLK")"
+deny_case "TOML 블록 안 Edit" "$(pay Edit file_path="$TOML" old_string='[agents.a]' new_string=x)"
+allow_case "TOML 블록 밖 Edit" "$(pay Edit file_path="$TOML" old_string='x = 1' new_string='x = 2')"
+
 echo "▶ 재설치·다중 클론"
 # 사용자용 클론(레포를 수정하는 폴더와 별도)에서 설치·재설치가 되는지
 UCLONE="$TMP/userclone"; mkdir -p "$UCLONE"

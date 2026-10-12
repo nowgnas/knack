@@ -47,6 +47,7 @@ bug-fix 스킬의 세부 절차. `knack show ref bugfix-workflow --section <번�
 - 실행은 사람이 한다. 에이전트는 운영 데이터에 쓰지 않는다.
 - 잘못 발행된 이벤트나 이미 실행된 외부 호출이 있었는지도 확인한다.
 
-## 9. 요약
-`.design`이 없으면 `mkdir -p .design/<YYYYMMDD>-bug-<slug> && printf '*\n' > .design/.gitignore`를 먼저 실행한다.
-`BUGFIX.md` 템플릿을 채워 저장한다.
+## 9. 기록
+경량(1–3개 파일, 동작 변경 없음)이면 파일을 만들지 않고 대화로만 보고한다.
+그 밖에는 `.design`이 없으면 `mkdir -p .design/bug-<slug> && printf '*\n' > .design/.gitignore`를 먼저 실행하고,
+`BUGFIX.md` 템플릿을 채워 저장한다 — 수정 계획과 결과를 같은 파일에 쓰고 요약 파일을 따로 만들지 않는다.

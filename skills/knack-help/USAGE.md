@@ -13,9 +13,9 @@ knack 은 백엔드 개발용 개인 에이전트 하네스입니다. 에이전�
 |---|---|---|---|
 | 처음 보는 레포 | "이 레포 파악해줘", "quick으로 온보딩", "deep 모드로 결제 도메인 위주로" | `repo-onboarding` | `.onboarding/ONBOARDING.md` 외 |
 | API 동작 이해 | "POST /api/orders 흐름 따라가줘" | `trace-flow` | `.onboarding/flows/*.md` |
-| 새 기능 | "주문 취소 API 추가해줘" (요구사항·정책 문서가 있으면 함께) | `feature-implementation` | `.design/<날짜>-<slug>/DESIGN.md`, `SUMMARY.md` |
-| 버그 | "이 버그 고쳐줘", "이 에러 고쳐줘" + 스택트레이스·로그 | `bug-fix` | `.design/<날짜>-bug-<slug>/BUGFIX.md` |
-| 머지 전 리뷰 | "머지 전에 리뷰해줘" | `impl-review` | `.design/.../REVIEW.md` |
+| 새 기능 | "주문 취소 API 추가해줘" (요구사항·정책 문서가 있으면 함께) | `feature-implementation` | 경량은 없음 · 표준은 `.design/<slug>/PLAN.md` |
+| 버그 | "이 버그 고쳐줘", "이 에러 고쳐줘" + 스택트레이스·로그 | `bug-fix` | 경량은 없음 · 그 밖에는 `.design/bug-<slug>/BUGFIX.md` |
+| 머지 전 리뷰 | "머지 전에 리뷰해줘" | `impl-review` | 대화 보고 · 고위험만 `.design/<slug>/REVIEW.md` |
 | 스킬·룰·훅 설치·관리 | "이 스킬 설치해줘", "훅 추가해줘", "하네스 업데이트해줘" | `knack-manage` | 하네스 레포 변경 |
 | 내 정보 등록 | "내 정보 등록해줘", "페르소나 수정해줘" (자기소개 파일이 있으면 함께) | `persona` | `persona/core.md`, `persona/detail/*.md` |
 | 쉬운 말로 설명 | "이거 매니저한테 설명하려면", "ELI5로 설명해줘" | `eli5` | — |
@@ -46,8 +46,8 @@ knack 은 백엔드 개발용 개인 에이전트 하네스입니다. 에이전�
   → 셀프 리뷰 4단계 → 독립 리뷰 → 보고 직전 knack gate reverify (고위험) → 핵심 구현 요약
 ```
 - 게이트를 통과하기 전에는 코드를 수정하지 않습니다. 설계가 괜찮으면 "진행해"처럼 **명시적으로 승인**해 주세요.
-- 승인 뒤에는 로컬 빌드·테스트·린트 실행과 실패 수정을 묻지 않고, 완료 기준(테스트·린트 통과, 독립 리뷰 반영, 요약)까지 진행한 다음 한 번 보고합니다.
-- 작은 변경은 경량 모드로, 설계를 5줄로 요약해 확인받습니다. "설계 없이 바로 해줘"라고 하면 게이트를 건너뜁니다(가정은 요약에 남음).
+- 승인 뒤에는 로컬 빌드·테스트·린트 실행과 실패 수정을 묻지 않고, 완료 기준(테스트·린트 통과, 독립 리뷰 반영, 결과 기록)까지 진행한 다음 한 번 보고합니다.
+- 모듈 2개 이하이고 정책·데이터 모델·API 계약이 그대로면 경량 모드입니다 — 계획을 대화로 확인받고 파일은 만들지 않습니다. 모듈 3개 이상이거나 계약이 바뀌면 `PLAN.md` 한 개를 만들고 구현 결과도 그 파일에 덧붙입니다. "설계 없이 바로 해줘"라고 하면 게이트를 건너뜁니다(가정은 보고에 남음).
 - 스키마가 바뀌면 DB 마이그레이션 가이드(expand → contract, 락, 롤백)가 설계에 적용됩니다.
 - 성공 기준 테스트는 구현 전에 실패하는 것부터 확인하고(Red → Green), 리뷰 전에 완성도 → 도메인 전문가의 눈 → 결함 사냥 → 정리 순서로 셀프 리뷰합니다.
 - **고위험 변경**(스키마·데이터 보정, 금액·결제·정산, 동시성·멱등성, 메시지 재처리, 대규모 리팩터링)은 설계 때 완료 게이트 `GATES.md`를 함께 승인받고, 완료 보고 직전에 `knack gate reverify`로 전부 다시 확인합니다. 규칙: `knack show ref high-risk-gates`
@@ -114,7 +114,7 @@ knack 은 백엔드 개발용 개인 에이전트 하네스입니다. 에이전�
 | on-demand 룰 | `rules/*.md` (`load: on-demand`, `when:`) | 지시 파일에는 이름과 시점 한 줄만 들어가고, 본문은 필요할 때 `knack show rule <이름>`으로 읽음 |
 | 훅 | `hooks/<이름>/hook.json` + 스크립트 | `settings.json`(Claude), `hooks.json`(Codex)에 `--knack-hook` 표식이 붙은 항목만 추가·제거. 다른 훅은 건드리지 않음 |
 
-기본 훅 `guard-agent-config`는 `~/.claude/skills`, `~/.agents/skills`, `~/.codex/skills`, `~/.claude/agents`에 직접 쓰는 것을 막습니다. 하네스로 이어지는 링크를 통한 수정은 허용합니다. 끄려면 `knack hook disable guard-agent-config` → `knack install`.
+기본 훅 `guard-agent-config`는 `~/.claude/skills`, `~/.agents/skills`, `~/.codex/skills`, `~/.claude/agents`에 직접 쓰는 것과, 지시·설정 파일(`CLAUDE.md`·`AGENTS.md`·`config.toml`)의 `knack:start … knack:end` 블록을 고치는 편집을 막습니다. 하네스로 이어지는 링크를 통한 수정, 블록 밖 편집, 보호 경로 읽기는 허용합니다. 끄려면 `knack hook disable guard-agent-config` → `knack install`.
 
 기본 훅 `knack-stale`(Claude `SessionStart`)은 설치본이 레포와 다르면 세션 시작 때 알립니다. 스킬은 심링크라 레포를 고치면 바로 반영되지만 룰 블록·서브에이전트·훅·모델은 `install.sh`가 만드는 생성물이라 레포만 고치면 낡은 상태로 남기 때문입니다. 판단은 `install.sh --status`가 하고, 훅은 알리기만 합니다(설치는 사용자 승인 후 `knack install`). 끄려면 `knack hook disable knack-stale` → `knack install`.
 
@@ -187,8 +187,9 @@ knack 은 백엔드 개발용 개인 에이전트 하네스입니다. 에이전�
 대상 레포 안에 만들어지며, 폴더마다 `.gitignore`(`*`)가 있어서 커밋되지 않습니다.
 ```
 .onboarding/   ONBOARDING.md, GLOSSARY.md, QUESTIONS.md, scan.md, flows/
-.design/       <날짜>-<slug>/DESIGN.md, SUMMARY.md, REVIEW.md, GATES.md(고위험)
-               <날짜>-bug-<slug>/BUGFIX.md
+.design/       <slug>/PLAN.md — 계획과 결과를 한 파일에 (표준 규모부터)
+               <slug>/GATES.md, REVIEW.md — 고위험일 때만
+               bug-<slug>/BUGFIX.md
 ```
 
 ## 터미널 명령 `knack`
@@ -198,7 +199,7 @@ knack 은 백엔드 개발용 개인 에이전트 하네스입니다. 에이전�
 | `knack list [skills\|rules\|agents\|hooks\|plugins\|mcp] [--all] [--json]` | 하네스 항목과 설치 상태. `--all`이면 외부 스킬·룰·훅·플러그인(Claude Code·데스크톱 앱)·MCP까지 |
 | `knack show <skill\|rule\|agent\|hook\|ref\|template\|usage> <이름> [--toc\|--section N\|--path]` | 필요한 부분만 조회 (예: `knack show ref db-migration --section 2`) |
 | `knack search <키워드> [-l] [-E]` | 하네스 문서 검색 (`path:line`) |
-| `knack doctor` | 구조·중복·설치 상태·환경 점검 |
+| `knack doctor` | 구조·중복(같은 이름 + `overlaps:`로 선언한 기능 중복)·설치 상태·환경 점검 |
 | `knack add skill <경로\|git URL> [--subdir P] [--name N] [--install]` | 외부 스킬을 하네스에 복사 (출처는 `.knack-source`에 기록) |
 | `knack new <skill\|rule\|hook> <이름> [--always]` | 뼈대 생성 (룰은 기본 on-demand, 훅은 기본 꺼짐) |
 | `knack adopt skill <이름>` | 에이전트 폴더의 외부 스킬을 하네스로 이동 |

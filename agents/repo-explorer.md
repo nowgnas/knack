@@ -3,6 +3,7 @@ name: repo-explorer
 description: Read-only codebase explorer. Used by repo-onboarding to investigate one lens (architecture, entry points, data, integrations, operations) in parallel. Returns facts with file:line evidence.
 tools: Read, Grep, Glob, Bash
 task: explore
+when: repo-onboarding·trace-flow 처럼 여러 관점을 병렬로 훑을 때. 파일 몇 개 확인은 이 세션에서 직접
 sandbox: read-only
 ---
 

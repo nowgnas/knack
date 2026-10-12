@@ -37,7 +37,7 @@ unlazy(https://github.com/Leonxlnx/unlazy, MIT)의 게이트 형식과 규칙 �
 운영·공유 환경에 닿는 CHECK는 쓰지 않는다(`30-backend-safety`). 로컬 DB, Testcontainers, 임시 파일만 쓴다.
 
 ## 4. 승인 — 설계 게이트에서 함께
-- DESIGN.md(버그면 수정 계획)와 함께 GATES.md를 보여주고, `knack gate status <경로>` 출력으로 파싱 결과와 실행될 명령을 제시한다.
+- PLAN.md(버그면 BUGFIX.md의 수정 계획)와 함께 GATES.md를 보여주고, `knack gate status <경로>` 출력으로 파싱 결과와 실행될 명령을 제시한다.
 - 사용자가 게이트 명령 목록을 승인하기 전에는 `knack gate run`을 하지 않는다. 승인 뒤 게이트를 바꾸면 다시 보여준다.
 
 ## 5. 실행과 재검증
@@ -59,4 +59,4 @@ unlazy(https://github.com/Leonxlnx/unlazy, MIT)의 게이트 형식과 규칙 �
 1. 원래 요청과 성공 기준을 다시 읽고, 게이트가 빠짐없이 덮는지 확인한다.
 2. `knack gate reverify`를 실행한다. ALL MET이 아니면 완료라고 보고하지 않는다.
 3. 보고에 쓰는 숫자(건수, 소요 시간, 커버리지)는 방금 다시 잰 값만 쓴다.
-4. SUMMARY.md·BUGFIX.md의 완료 게이트 표에 게이트별 결과와 포기 항목을 적는다.
+4. PLAN.md 9절·BUGFIX.md의 완료 게이트 표에 게이트별 결과와 포기 항목을 적는다.

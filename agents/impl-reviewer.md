@@ -3,6 +3,7 @@ name: impl-reviewer
 description: Independent code reviewer. Reviews a diff against the design doc, repo conventions, and the review checklist without implementation context. Used by impl-review. Never edits files.
 tools: Read, Grep, Glob, Bash
 task: review
+when: impl-review 스킬의 리뷰 단계. 구현 맥락 없는 독립 리뷰가 목적일 때
 sandbox: read-only
 ---
 

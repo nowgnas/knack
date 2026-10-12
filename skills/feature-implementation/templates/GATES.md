@@ -1,6 +1,6 @@
 # <기능명> 완료 게이트
 
-> 설계: [DESIGN.md](DESIGN.md) · 상태: `knack gate status <이 파일>` · 보고 직전: `knack gate reverify <이 파일>`
+> 설계: [PLAN.md](PLAN.md) · 상태: `knack gate status <이 파일>` · 보고 직전: `knack gate reverify <이 파일>`
 > 규칙: `knack show ref high-risk-gates` — 게이트 하나에 관찰 가능한 결과 하나, 통과는 exit 0 과 기대 출력 일치
 
 - [ ] G1: <결과 — 예: 같은 멱등키로 동시에 10건 요청하면 결제 승인은 1건이다>

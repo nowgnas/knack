@@ -1,6 +1,6 @@
 ---
 name: eli5
-description: "Explain a topic, code, or error for a given audience. Triggers: 'ELI5', 'explain like I am', 'explain this to my <person>', 'dumb it down', 'simplify'."
+description: "Explain a topic, code, or error for an audience. Triggers: 'ELI5', 'explain like I am', 'explain this to my <person>', 'dumb it down'. Not code cleanup."
 ---
 
 # Explain Like I Am... (ELI5)

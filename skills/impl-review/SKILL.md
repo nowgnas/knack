@@ -1,6 +1,7 @@
 ---
 name: impl-review
-description: 완성된 diff를 구현 맥락이 없는 리뷰어가 설계 문서·레포 컨벤션과 대조해 리뷰하고 .design/REVIEW.md를 남긴다. "머지 전에 리뷰해줘"라고 할 때와 구현·버그 수정의 리뷰 단계에 사용.
+description: 완성된 diff를 구현 맥락이 없는 리뷰어가 계획 문서·레포 컨벤션과 대조해 리뷰한다. "머지 전에 리뷰해줘"라고 할 때와 구현·버그 수정의 리뷰 단계에 사용. 설계 대조 없이 diff만 볼 때는 /code-review.
+overlaps: mattpocock-skills:code-review, engineering:code-review
 ---
 
 # Impl Review
@@ -12,13 +13,13 @@ description: 완성된 diff를 구현 맥락이 없는 리뷰어가 설계 문�
 ## 1. 리뷰 범위 확정
 | 넘길 것 | 기본값 |
 |---|---|
-| 변경 범위 | `git diff <base>...HEAD` + 작업 트리 변경. base는 DESIGN.md의 기준 커밋, 없으면 기본 브랜치와의 merge-base |
-| 기준 문서 | `.design/<slug>/DESIGN.md` 또는 `BUGFIX.md`. 없으면 사용자 요청을 성공 기준 3~5줄로 정리 |
+| 변경 범위 | `git diff <base>...HEAD` + 작업 트리 변경. base는 PLAN.md의 기준 커밋, 없으면 기본 브랜치와의 merge-base |
+| 기준 문서 | `.design/<slug>/PLAN.md` 또는 `BUGFIX.md`. 없으면(경량·단독 요청) 사용자 요청을 성공 기준 3~5줄로 정리 |
 | 완료 게이트 | 고위험이면 `.design/<slug>/GATES.md`, 아니면 "없음" |
-| 레퍼런스 기능 | DESIGN.md 4절의 경로 |
+| 레퍼런스 기능 | PLAN.md 4절의 경로 |
 | 체크리스트 | `references/review-checklist.md`의 **절대 경로** (`knack show ref review-checklist --path`) |
 
-구현 중 고민이나 "이렇게 한 이유"는 넘기지 않는다. 설계 결정은 DESIGN.md 결정 이력으로 충분하다.
+구현 중 고민이나 "이렇게 한 이유"는 넘기지 않는다. 설계 결정은 PLAN.md 8절 결정 이력으로 충분하다.
 
 ## 2. 리뷰어 실행
 | 환경 | 방법 |
@@ -31,7 +32,7 @@ description: 완성된 diff를 구현 맥락이 없는 리뷰어가 설계 문�
 ```
 너는 이 레포의 독립 코드 리뷰어다. 파일을 수정하거나 생성하지 말고 읽기와 검증 명령만 실행한다. 빌드와 관련 테스트는 실행해도 된다.
 - 리뷰 대상: `git diff <base>...HEAD` 와 작업 트리 변경(`git status`, `git diff`)
-- 기준 문서: <DESIGN.md 또는 BUGFIX.md 경로> — 성공 기준, 정책 결정, 변경 범위를 기준으로 삼는다
+- 기준 문서: <PLAN.md 또는 BUGFIX.md 경로> — 성공 기준, 정책 결정, 변경 범위를 기준으로 삼는다
 - 완료 게이트: <GATES.md 경로 또는 없음> — 있으면 게이트가 성공 기준을 덮는지, 동작과 무관하게 통과하는 게이트가 없는지 본다
 - 레퍼런스 기능: <경로들> — 컨벤션 비교 기준
 - 체크리스트: <review-checklist.md 절대 경로> 를 먼저 읽고 항목별로 확인한다
@@ -52,8 +53,9 @@ description: 완성된 diff를 구현 맥락이 없는 리뷰어가 설계 문�
 | ❔ 질문 | 코드로 답할 수 있으면 답을 적고, 정책 문제면 사용자에게 올린다 |
 
 - 반영한 뒤에는 빌드와 테스트를 다시 돌린다. Blocker를 고쳤으면 고친 부분만 한 번 더 리뷰받는다. **리뷰는 최대 2라운드**.
-- 결과는 `templates/REVIEW.md` 형식으로 `.design/<slug>/REVIEW.md`에 저장한다. 단독 요청이라 `.design`이 없으면 `.design/<YYYYMMDD>-review/`에 만들고 `printf '*\n' > .design/.gitignore`도 함께 한다.
+- 결과는 대화로 보고하고, 계획 파일이 있으면 `PLAN.md` 9절 독립 리뷰 줄(리뷰어·심각도별 건수·반영/보류)을 채운다.
+- **고위험일 때만** 지적 전문을 `templates/REVIEW.md` 형식으로 `.design/<slug>/REVIEW.md`에 남긴다. 게이트와 함께 다시 읽히기 때문이다. 그 밖에는 파일을 만들지 않는다 — 지적은 PR 코멘트와 커밋이 보관한다.
 
 ## 4. 완료 기준과 보고
-완료 = 🔴·🟠가 모두 반영됐거나 사용자 결정으로 보류됐고, 반영 후 검증을 통과했으며, `REVIEW.md`를 저장한 상태.
+완료 = 🔴·🟠가 모두 반영됐거나 사용자 결정으로 보류됐고, 반영 후 검증을 통과했으며, 결과가 기록된 상태(계획 파일 9절, 고위험이면 `REVIEW.md`).
 보고: 심각도별 건수, 반영·보류·반박한 지적(이유 포함), 남은 리스크.

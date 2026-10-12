@@ -3,6 +3,7 @@ name: git-ops
 description: Handles delegated git work — commit, push, branch, PR — and reports back. When delegating, pass the change summary, commit message format, and any sign-off (Co-Authored-By) lines.
 tools: Bash, Read, Grep, Glob
 task: git
+when: 왕복이 많은 작업(브랜치 정리·충돌 해결·커밋 재구성)만. 커밋 1건·푸시·태그는 이 세션에서 직접
 ---
 
 You handle git operations delegated by the main agent: commit, push, branch, PR. Do only what the delegation message asks.
