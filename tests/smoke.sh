@@ -75,6 +75,22 @@ for a in "$KNACK_DIR"/agents/*.md; do
   check "Codex 역할 생성: ${n%.md}" '[ -f "$ROLES/${n%.md}.toml" ] && contains "$CODEX_HOME/config.toml" "[agents.${n%.md}]" && toml_ok "$ROLES/${n%.md}.toml"'
 done
 check "작업별 모델: git-ops=sonnet, impl-reviewer=opus" 'grep -q "^model: sonnet$" "$HOME/.claude/agents/git-ops.md" && grep -q "^model: opus$" "$HOME/.claude/agents/impl-reviewer.md"'
+check "지시 블록에 모델 색인·위임 조건 (claude·codex 양쪽)" 'grep -q "작업 유형별 모델" "$HOME/.claude/CLAUDE.md" && grep -q "작업 유형별 모델" "$CODEX_HOME/AGENTS.md" && grep -q "서브에이전트에 위임" "$HOME/.claude/CLAUDE.md" && grep -q "spawn_agent" "$CODEX_HOME/AGENTS.md"'
+check "모델 색인은 후보 목록에서도 만들어진다" 'python3 - "$KNACK_DIR" <<EOF
+import json, subprocess, sys, pathlib
+k = pathlib.Path(sys.argv[1]); p = k / "models.json"
+cfg = json.loads(p.read_text()); orig = p.read_text()
+cfg["tiers"]["codex"]["deep"]["model"] = ["gpt-6-astra", "gpt-5.6-sol"]
+cfg["main"]["codex"]["model"] = ["gpt-6-sol", "gpt-5.5"]
+p.write_text(json.dumps(cfg))
+try:
+    for agent in ("claude", "codex"):
+        r = subprocess.run([sys.executable, str(k / "lib/knack.py"), "models-index", "--agent", agent],
+                           capture_output=True, text=True)
+        assert r.returncode == 0 and "작업 유형별 모델" in r.stdout, (agent, r.returncode, r.stderr[-200:])
+finally:
+    p.write_text(orig)
+EOF'
 check "Codex 역할 모델·effort·sandbox" 'contains "$ROLES/git-ops.toml" "model = \"gpt-5.6-sol\"" && contains "$ROLES/git-ops.toml" "model_reasoning_effort = \"medium\"" && contains "$ROLES/impl-reviewer.toml" "model = \"gpt-6-astra\"" && contains "$ROLES/repo-explorer.toml" "sandbox_mode = \"read-only\"" && ! contains "$ROLES/git-ops.toml" "sandbox_mode"'
 check "Codex config.toml: 기존 내용 보존 + 역할 블록 ($TOML_NOTE)" 'contains "$CODEX_HOME/config.toml" "[mcp_servers.cx]" && [ "$(head -1 "$CODEX_HOME/config.toml")" = "model = \"gpt-5.6-luna\"" ] && contains "$CODEX_HOME/config.toml" "config_file = \"$ROLES/git-ops.toml\"" && toml_ok "$CODEX_HOME/config.toml"'
 check "외부 서브에이전트는 그대로" '[ "$(cat "$HOME/.claude/agents/my-agent.md" | tail -1)" = "mine" ]'

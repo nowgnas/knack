@@ -1172,7 +1172,8 @@ def model_warnings(cfg):
 def tier_rank_of(cfg, agent, model):
     base = (model or "").replace("[1m]", "")
     for tier, spec in (cfg["tiers"].get(agent) or {}).items():
-        if (spec.get("model") or "").replace("[1m]", "") == base:
+        cands = spec.get("model") if isinstance(spec.get("model"), list) else [spec.get("model")]
+        if any((c or "").replace("[1m]", "") == base for c in cands):
             return TIER_RANK.get(tier, -1)
     return -1
 

@@ -268,7 +268,14 @@ sync_hooks() { py_sync "훅" hooks-sync --agent "$1" --file "$2"; }
 sync_models() { py_sync "모델·서브에이전트" models-sync --agent "$@"; }
 models_index() {
   command -v python3 >/dev/null 2>&1 || return 0
-  python3 "$KNACK_DIR/lib/knack.py" models-index --agent "$1" 2>/dev/null || true
+  local out
+  # 색인을 못 만들어도 설치는 계속한다(fail-open). 다만 조용히 빠지면 블록에서
+  # 라우팅이 사라진 걸 알 수 없으므로 stderr 로 알린다
+  if ! out="$(python3 "$KNACK_DIR/lib/knack.py" models-index --agent "$1" 2>&1)"; then
+    echo "경고: 모델 색인을 만들지 못했습니다 ($1) — knack doctor 로 확인하세요" >&2
+    return 0
+  fi
+  printf '%s\n' "$out"
 }
 # 사용자 페르소나(설정했을 때만). 결정에 쓰이는 사실이라 블록 맨 앞에 둔다
 persona_block() {
