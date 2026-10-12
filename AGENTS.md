@@ -6,7 +6,8 @@
 - `rules/*.md` — 룰. frontmatter `load: always`(매 세션 주입)는 짧게, 가끔 필요한 것은 `load: on-demand` + `when:`
 - `skills/<name>/SKILL.md` — 에이전트 중립 스킬. 스크립트는 `skills/<name>/scripts/`
 - `agents/*.md` — 서브에이전트. `task:`(models.json 작업 유형)로 모델이 정해지고, Claude 파일·Codex 역할로 생성된다. `sandbox:`는 Codex 역할에만 적용
-- `models.json` — 작업 유형 → 티어 → 에이전트별 모델·effort, `main`은 세션 기본 모델. 변경은 `knack model set`
+- `models.json` — 작업 유형 → 티어 → 에이전트별 모델·effort, `main`은 세션 기본 모델. 변경은 `knack model set`.
+  모델은 이름 하나 또는 후보 목록(`["gpt-6-astra", "gpt-6-sol"]`)으로 적고, 설치된 첫 모델이 쓰인다. PC 전용 값은 `~/.config/knack/models.local.json`에 두면 덮어쓴다(커밋되지 않음)
 - `hooks/<name>/hook.json` + 스크립트 — 훅. `targets`에 에이전트별 event/matcher
 - `lib/knack.py` — list/show/search/doctor/add/new/adopt/hook/model, 외부 항목 조회(Claude Code·데스크톱 앱 플러그인 포함), 훅·모델 설정 동기화
 - `lib/usage.py`, `lib/bench.py`, `lib/gate.py`, `lib/persona.py` — 세션 로그 토큰 집계, 작업 세트 조건별 실행·비교, 완료 게이트 확인·재검증, 페르소나 (`knack usage`, `knack bench`, `knack gate`, `knack persona`)

@@ -51,6 +51,9 @@ AGENTS_SUPPORTED = ("claude", "codex")  # 모델·서브에이전트·훅까지 
 INSTALL_TARGETS = (*AGENTS_SUPPORTED, "copilot")  # copilot 은 스킬(~/.agents/skills 공유)·룰만
 
 MODELS = KNACK / "models.json"
+# 머신별 오버라이드. models.json 은 레포에 커밋돼 모든 PC가 공유하므로,
+# 그 PC에만 있는(또는 없는) 모델은 이 파일로 덮어쓴다. 커밋되지 않는다
+MODELS_LOCAL = Path(os.environ.get("XDG_CONFIG_HOME") or HOME / ".config") / "knack" / "models.local.json"
 TIER_RANK = {"fast": 0, "standard": 1, "deep": 2}
 CLAUDE_MODELS = {"opus", "sonnet", "haiku", "inherit", "opusplan", "opus[1m]", "sonnet[1m]"}
 EFFORTS = ("low", "medium", "high", "xhigh", "max", "ultra")
@@ -990,13 +993,59 @@ def cmd_hooks_sync(a):
 
 
 # ── 모델 라우팅 (models.json) ──────────────────
-def load_models(safe=False):
+def deep_merge(base, over):
+    """over 의 값으로 base 를 덮어쓴다 (dict 는 키 단위로 내려가며 병합)."""
+    for k, v in (over or {}).items():
+        if isinstance(v, dict) and isinstance(base.get(k), dict):
+            deep_merge(base[k], v)
+        else:
+            base[k] = v
+    return base
+
+
+def load_models(safe=False, merge=True):
+    """models.json. merge=True 면 머신별 models.local.json 을 덮어쓴다.
+    값을 저장하는 쪽은 merge=False 로 읽어야 한다 — 로컬 값이 공유 파일에 섞이지 않게."""
     try:
-        return json.loads(MODELS.read_text(encoding="utf-8"))
+        cfg = json.loads(MODELS.read_text(encoding="utf-8"))
     except (OSError, ValueError) as e:
         if safe:
             return None
         fail(f"models.json 을 읽을 수 없습니다: {e}")
+    local = load_json(MODELS_LOCAL) if merge else None
+    if isinstance(local, dict):
+        deep_merge(cfg, local)
+    return cfg
+
+
+def model_ok(agent, model):
+    """이 에이전트가 아는 모델인가. 확인할 방법이 없으면 True (fail-open).
+
+    codex 는 models_cache.json 으로 확인한다. claude 는 별칭(opus·sonnet·haiku)을
+    CLI 가 풀어 주므로 목록으로만 보고, CLI 버전이 그 별칭을 아는지는 알 수 없다.
+    """
+    if not model:
+        return False
+    if agent == "claude":
+        return model in CLAUDE_MODELS or model.startswith("claude-")
+    known = codex_known_models()
+    return model in known if known else True
+
+
+def pick_model(agent, model, effort):
+    """model 이 목록이면 설치된 첫 모델을 고른다. 확인할 수 없으면 첫 값.
+
+    effort 도 그 모델이 지원하지 않으면 떨군다 — 구버전 CLI 에서 플래그가 거부되지 않게.
+    """
+    cands = [c for c in (model if isinstance(model, list) else [model]) if c]
+    if not cands:
+        return None, effort
+    chosen = next((c for c in cands if model_ok(agent, c)), cands[0])
+    if agent == "codex" and effort:
+        levels = codex_known_models().get(chosen)
+        if levels and effort not in levels:
+            effort = None
+    return chosen, effort
 
 
 def resolve_model(cfg, task, agent):
@@ -1009,7 +1058,7 @@ def resolve_model(cfg, task, agent):
             fail(f"알 수 없는 작업 유형: {task} (목록: knack model)", 2)
         spec = dict(cfg["tiers"][agent][t["tier"]])
         spec.update(t.get(agent) or {})
-    return spec.get("model"), spec.get("effort")
+    return pick_model(agent, spec.get("model"), spec.get("effort"))
 
 
 def model_label(model, effort):
@@ -1088,7 +1137,13 @@ def models_problems():
     return out
 
 
+_CODEX_MODELS = None
+
+
 def codex_known_models():
+    global _CODEX_MODELS
+    if _CODEX_MODELS is not None:
+        return _CODEX_MODELS
     data = load_json(CODEX_HOME / "models_cache.json")
     models = data.get("models") if isinstance(data, dict) else data
     out = {}
@@ -1096,6 +1151,7 @@ def codex_known_models():
         if isinstance(m, dict) and (m.get("slug") or m.get("id")):
             levels = m.get("supported_reasoning_levels") or []
             out[m.get("slug") or m.get("id")] = [e.get("effort") if isinstance(e, dict) else e for e in levels]
+    _CODEX_MODELS = out
     return out
 
 
@@ -1106,12 +1162,10 @@ def model_warnings(cfg):
             model, effort = resolve_model(cfg, task, agent)
             if not model:
                 warns.add(f"{agent}/{task}: 모델이 비어 있음")
-            elif agent == "claude" and model not in CLAUDE_MODELS and not model.startswith("claude-"):
-                warns.add(f"claude/{task}: 알 수 없는 모델 '{model}'")
-            elif agent == "codex" and known and model not in known:
-                warns.add(f"codex/{task}: models_cache 에 없는 모델 '{model}'")
-            elif agent == "codex" and effort and known.get(model) and effort not in known[model]:
-                warns.add(f"codex/{task}: '{model}' 이 지원하지 않는 effort '{effort}'")
+            elif not model_ok(agent, model):
+                warns.add(f"{agent}/{task}: 설치된 후보가 없음 (고른 값 '{model}') — "
+                          f"knack run 은 모델 플래그 없이 CLI 기본값으로 실행한다. "
+                          f"이 PC 전용 값은 {pretty(MODELS_LOCAL)} 에 적는다")
     return sorted(warns)
 
 
@@ -1274,6 +1328,21 @@ def cmd_model(a):
             codex = model_label(*resolve_model(cfg, name, "codex"))
             via = ", ".join(delegates.get(name, [])) or "세션"
             print(f"  {name:<10} {t['tier']:<8} {claude:<14} | {codex:<22} → {via} · {t.get('desc', '')}")
+        skipped = []
+        for agent in AGENTS_SUPPORTED:
+            for name in ["main", *cfg["tasks"]]:
+                spec = (cfg.get("main") or {}).get(agent) or {} if name == "main" else \
+                    {**cfg["tiers"][agent][cfg["tasks"][name]["tier"]], **(cfg["tasks"][name].get(agent) or {})}
+                cands = spec.get("model") if isinstance(spec.get("model"), list) else []
+                for c in cands:
+                    if not model_ok(agent, c):
+                        skipped.append(f"{agent}/{name}: {c}")
+                    else:
+                        break
+        if MODELS_LOCAL.is_file():
+            print(f"\n로컬 오버라이드 적용 중: {pretty(MODELS_LOCAL)}")
+        if skipped:
+            print("설치되지 않아 건너뛴 후보: " + ", ".join(sorted(set(skipped))))
         print("\n분류: knack model which \"<요청>\" · 조회: knack model get <작업> --agent claude|codex"
               " · 변경: knack model set <작업|main|tier:이름> <티어|모델> [--agent] [--effort]")
     elif action == "get":
@@ -1296,21 +1365,23 @@ def cmd_model(a):
                 if whens.get(n):
                     print(f"    조건: {whens[n]}")
     else:
-        cmd_model_set(cfg, a)
+        cmd_model_set(load_models(merge=False), a)
 
 
 def cmd_model_set(cfg, a):
     target, value, tiers = a.target, a.value, cfg["tiers"]
+    # 쉼표로 적으면 후보 목록. 설치된 첫 모델을 쓴다 (PC 마다 있는 모델이 달라서)
+    picked = [v.strip() for v in value.split(",") if v.strip()] if "," in value else value
 
     def spec(agent):
         if value in TIER_RANK and value in tiers.get(agent, {}):
             return dict(tiers[agent][value])
-        return {"model": value, **({"effort": a.effort} if a.effort else {})}
+        return {"model": picked, **({"effort": a.effort} if a.effort else {})}
 
     if target.startswith("tier:"):
         if not a.agent:
             fail("티어의 모델을 바꿀 때는 --agent 가 필요합니다.", 2)
-        tiers.setdefault(a.agent, {})[target[5:]] = {"model": value, **({"effort": a.effort} if a.effort else {})}
+        tiers.setdefault(a.agent, {})[target[5:]] = {"model": picked, **({"effort": a.effort} if a.effort else {})}
     elif target == "main":
         if not a.agent and value not in TIER_RANK:
             fail("모델 이름으로 지정할 때는 --agent 가 필요합니다.", 2)
@@ -1343,15 +1414,20 @@ def cmd_run(a):
     model, effort = resolve_model(cfg, task, agent)
     if not model:
         fail(f"{agent}/{task} 모델이 models.json 에 없습니다.")
+    if not model_ok(agent, model):
+        print(f"knack run: {agent} 에 '{model}' 이 없습니다 — 모델 플래그 없이 CLI 기본값으로 실행합니다 "
+              f"(이 PC 전용 값은 {pretty(MODELS_LOCAL)})", file=sys.stderr)
+        model, effort = None, None
+    flags = model_flags(agent, model, effort) if model else []
     if agent == "claude":
-        cmd = [*agent_cmd(agent), *model_flags(agent, model, effort), *(["--print"] if a.print else [])]
+        cmd = [*agent_cmd(agent), *flags, *(["--print"] if a.print else [])]
     else:
-        cmd = [*agent_cmd(agent), *(["exec"] if a.print else []), *model_flags(agent, model, effort)]
+        cmd = [*agent_cmd(agent), *(["exec"] if a.print else []), *flags]
     if prompt:
         cmd.append(prompt)
     elif a.print:
         fail("--print 에는 프롬프트가 필요합니다.", 2)
-    print(f"knack run: {task} → {agent} {model_label(model, effort)}", file=sys.stderr)
+    print(f"knack run: {task} → {agent} {model_label(model, effort) if model else 'CLI 기본값'}", file=sys.stderr)
     if a.dry_run:
         print(shlex.join(cmd))
         return

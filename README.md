@@ -159,6 +159,8 @@ skills/<name>/          에이전트 중립 스킬 (SKILL.md + references/ templ
                         frontmatter overlaps: 는 같은 의도의 외부 스킬 이름 — doctor 가 설치 여부를 확인해 알린다
 agents/                 서브에이전트 (frontmatter task: → models.json 의 작업 유형, when: → 위임 조건)
 models.json             작업 유형별 모델 라우팅 (티어 → 에이전트별 모델·effort, 세션 기본 모델)
+                        모델은 후보 목록도 가능 — 설치된 첫 모델을 쓴다. PC 전용 값은
+                        ~/.config/knack/models.local.json (커밋되지 않음)
 hooks/<name>/           훅 정의(hook.json)와 스크립트
 persona/                페르소나 템플릿 (core.md·detail/ 은 gitignore)
 templates/              사용자별 설정 양식 (예: obsidian-vault.local.yml.example. 실제 값은 레포 밖에 둠)

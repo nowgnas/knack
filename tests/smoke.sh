@@ -153,6 +153,30 @@ check "run auto → claude sonnet (dry-run)" '"$H" run auto --agent claude --dry
 check "run implement → codex exec astra/high (dry-run)" '"$H" run implement --agent codex --print --dry-run -- "구현" 2>/dev/null | grep -q "^codex exec -m gpt-6-astra -c model_reasoning_effort=high "'
 check "run: 알 수 없는 작업은 실패" '! "$H" run nope --dry-run -- x >/dev/null 2>&1'
 
+# 후보 목록·머신별 오버라이드 (설치된 모델이 PC 마다 다른 경우)
+MC="$CODEX_HOME/models_cache.json"
+printf '{"models":[{"slug":"gpt-5.6-sol","supported_reasoning_levels":["low","medium"]},{"slug":"gpt-5.5","supported_reasoning_levels":["medium"]}]}\n' > "$MC"
+python3 - "$KNACK_DIR/models.json" <<'PYEOF'
+import json, sys
+cfg = json.load(open(sys.argv[1]))
+cfg["tiers"]["codex"]["deep"] = {"model": ["gpt-6-astra", "gpt-5.6-sol"], "effort": "high"}
+cfg["tiers"]["codex"]["fast"] = {"model": ["gone-model"], "effort": "low"}
+json.dump(cfg, open(sys.argv[1], "w"))
+PYEOF
+check "후보 목록: 캐시에 없는 첫 후보를 건너뛴다" '[ "$("$H" model get design --agent codex)" = "gpt-5.6-sol" ]'
+check "모델이 지원하지 않는 effort 는 떨군다" '[ "$("$H" model get design --agent codex --format flags)" = "-m gpt-5.6-sol" ]'
+check "후보가 전부 없으면 run 이 모델 플래그를 뺀다" '"$H" run lookup --agent codex --print --dry-run -- x 2>/dev/null | grep -q "^codex exec x$"'
+check "doctor: 설치된 후보가 없으면 경고" '"$H" doctor 2>&1 | grep -q "설치된 후보가 없음"'
+check "model list: 건너뛴 후보 표시" '"$H" model | grep -q "설치되지 않아 건너뛴 후보: .*gpt-6-astra"'
+mkdir -p "$HOME/.config/knack"
+printf '{"tiers":{"claude":{"deep":{"model":"sonnet"}}}}\n' > "$HOME/.config/knack/models.local.json"
+check "models.local.json 이 공유 값을 덮어쓴다" '[ "$("$H" model get design --agent claude)" = sonnet ]'
+check "model list: 로컬 오버라이드 표시" '"$H" model | grep -q "로컬 오버라이드 적용 중"'
+check "model set 은 로컬 값을 공유 파일에 굽지 않는다" '"$H" model set docs standard >/dev/null 2>&1 && python3 -c "import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if d[\"tiers\"][\"claude\"][\"deep\"][\"model\"] == \"opus\" else 1)" "$KNACK_DIR/models.json"'
+check "model set 쉼표는 후보 목록으로 저장" '"$H" model set tier:deep "gpt-6-astra,gpt-5.6-sol" --agent codex --effort high >/dev/null 2>&1 && python3 -c "import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if d[\"tiers\"][\"codex\"][\"deep\"][\"model\"] == [\"gpt-6-astra\",\"gpt-5.6-sol\"] else 1)" "$KNACK_DIR/models.json"'
+rm -f "$MC" "$HOME/.config/knack/models.local.json"
+cp "$REPO_DIR/tests/fixtures/models.json" "$KNACK_DIR/models.json"
+
 echo "▶ 조회 CLI"
 mkdir -p "$HOME/.claude/skills/my-ext" "$HOME/.claude/plugins/cache/demo/skills/foo"
 printf -- '---\nname: my-ext\ndescription: external skill for test\n---\n' > "$HOME/.claude/skills/my-ext/SKILL.md"

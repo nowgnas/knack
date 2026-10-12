@@ -131,6 +131,9 @@ knack 은 백엔드 개발용 개인 에이전트 하네스입니다. 에이전�
 - 커밋·푸시·PR은 `git-ops`, 탐색은 `repo-explorer`, 독립 리뷰는 `impl-reviewer`에 위임되고, 설계·구현은 세션 모델로 진행합니다.
 - 스크립트로 고르기: `knack model which "<요청>"`(키워드 분류), `knack model get <작업> --agent codex --format flags`, `knack run auto -- "<요청>"`(맞는 모델로 새 세션 실행).
 - 바꾸기: `knack model set git haiku --agent claude`, `knack model set implement deep`, `knack model set main deep --agent codex` → `knack install`.
+- **PC마다 설치된 모델이 다를 때**: 모델을 후보 목록으로 적으면(`knack model set tier:deep "gpt-6-astra,gpt-6-sol" --agent codex --effort high`) 설치된 첫 모델을 씁니다. Codex는 `~/.codex/models_cache.json`으로 설치 여부를 확인하고, 지원하지 않는 effort는 떨굽니다. Claude 별칭(`opus`·`sonnet`·`haiku`)은 CLI가 풀어 주므로 확인 대상이 아닙니다.
+- 후보가 전부 없으면 `knack run`은 모델 플래그 없이 CLI 기본값으로 실행하고 알립니다. `knack doctor`도 경고합니다.
+- 이 PC에만 적용할 값은 `~/.config/knack/models.local.json`에 같은 구조로 적습니다. `models.json` 위에 덮어쓰며 커밋되지 않고, `knack model set`은 이 파일을 건드리지 않습니다.
 
 ## 사용자 페르소나
 
