@@ -47,7 +47,7 @@ knack help                      # 사용법
 |---|---|---|
 | `repo-onboarding` | 처음 보는 레포 파악 → `.onboarding/` 문서 | "이 레포 파악해줘" |
 | `trace-flow` | 엔드포인트·메시지·배치 흐름 추적, 반대로 테이블·토픽 사용처 역추적 | "POST /api/orders 흐름 따라가줘", "orders 테이블 쓰는 곳 찾아줘" |
-| `feature-implementation` | 정책 점검 → 설계 → **승인 후** 구현 → 검증 → 셀프·독립 리뷰 → 요약. 고위험이면 완료 게이트 | "주문 취소 API 추가해줘" |
+| `feature-implementation` | 정책 점검 → 설계 → **승인 후** 구현 → 검증 → 셀프·독립 리뷰 → 결과 기록(`PLAN.md` 한 파일). 고위험이면 완료 게이트 | "주문 취소 API 추가해줘" |
 | `bug-fix` | 재현 → 원인 입증 → 수정 계획 → 최소 수정 → 되돌림 확인 → 영향 데이터 점검 | "이 버그 고쳐줘", "이 에러 고쳐줘" + 스택트레이스·로그 |
 | `impl-review` | 구현 맥락이 없는 리뷰어가 요약 대신 코드로 성공 기준을 대조 | "머지 전에 리뷰해줘" |
 | `persona` | 자기소개·배경을 에이전트가 쓰는 페르소나(결정 형태)로 정리 | "내 정보 등록해줘" |
@@ -58,8 +58,8 @@ knack help                      # 사용법
 
 ## 작업 규율
 
-범용 방법론을 옆에 따로 두면 같은 요청마다 절차가 경쟁하고 토큰도 늘어납니다. 그래서 knack 스킬을 기본 절차로 두고, 두 방법론에서 knack에 없던 강점만 가져와 스킬 안에 넣었습니다.
-매 세션 로드되는 룰은 한 줄만 늘었고, 나머지는 해당 단계에서만 읽는 ref에 있습니다.
+범용 방법론을 옆에 따로 두면 같은 요청마다 절차가 경쟁하고 토큰도 늘어납니다. 그래서 knack 스킬을 기본 절차로 두고, 외부 스킬·가이드에서 knack에 없던 강점만 가져와 스킬 안에 넣었습니다.
+매 세션 로드되는 룰에 들어간 것은 네 항목(검증 증거, 진행·중단 기준, 보고 순서, 사다리)이고, 나머지는 해당 단계에서만 읽는 ref에 있습니다.
 
 | 규율 | 출처 | 적용 위치 |
 |---|---|---|
@@ -71,12 +71,16 @@ knack help                      # 사용법
 | 지적은 코드로 사실인지 확인한 뒤 한 건씩 반영, 틀리면 근거로 반박. 불명확한 지적이 있으면 전부 멈춤 | superpowers `receiving-code-review` | `impl-review` 3단계 |
 | 완성도 → 도메인 전문가의 눈 → 결함 사냥 → 정리 순서의 셀프 리뷰 | unlazy 4-pass | `feature-implementation` 8단계 |
 | 고위험 변경은 설계 때 `GATES.md` 승인, 보고 직전 전부 재실행, 불가능한 게이트는 인계 | unlazy `GATES.md`·`--reverify`·`ABANDON` | ref `high-risk-gates`, `knack gate` |
+| 짜기 전에 사다리를 타고 처음 되는 칸에서 멈춘다. 보안·데이터 유실·권한은 줄이지 않고, 분기·금액·보안 로직은 테스트를 남긴다 | [ponytail](https://github.com/dietrichgebert/ponytail) 사다리 | 룰 `coding`, `feature-implementation` 4단계 |
+| 입력이 필요 없으면 멈추지 않고 진행한다. 다음 할 일만 적어두고 끝내지 않는다. 보고는 사용자 결정이 필요한 것을 맨 앞에 | Opus 5.5 활용 가이드 | 룰 `core` |
 
 가져오지 않은 것:
 - superpowers의 brainstorming·writing-plans·executing-plans·subagent-driven 개발 흐름 — 정책 점검과 `PLAN.md` 설계 게이트가 같은 역할을 합니다.
 - superpowers의 "테스트 없이 짠 코드는 삭제" 규칙과 압박성 문구 — 레거시 백엔드에는 과합니다.
 - superpowers의 worktree·브랜치 마무리 — `git-ops` 서브에이전트가 맡습니다.
-- unlazy의 Depth Tree·병렬 fan-out·stop 훅 — 기능 하나·버그 하나 단위 작업에는 필요 없고 토큰 비용이 큽니다.
+- unlazy의 Depth Tree·병렬 fan-out — 기능 하나·버그 하나 단위 작업에는 필요 없고 토큰 비용이 큽니다.
+- unlazy의 stop 훅(게이트가 열려 있으면 턴 종료 차단) — 완료 선언을 막는 장치는 `knack gate`가 같은 설계(실행 검증, 증거를 게이트 정의 해시에 결속, `reverify`, 포기≠성공)를 이미 갖고 있습니다. 턴 종료를 막는 훅은 훅을 fail-open으로 두는 원칙과 반대라, 게이트를 실제 작업에 써 본 뒤 필요하면 비차단 알림부터 넣습니다.
+- ponytail의 `/ponytail-review`·`/ponytail-audit`·`shortcut:` 부채 주석 — 리뷰 스킬이 이미 여럿이고, 부채는 `PLAN.md` 후속 작업이 맡습니다.
 
 두 저장소 모두 MIT 라이선스이며, 개념과 게이트 형식만 가져와 한국어로 다시 썼습니다.
 
@@ -94,8 +98,8 @@ knack gate reverify .design/<slug>/GATES.md   # 충족된 것까지 전부 다�
 
 | 종류 | 이름 | 내용 |
 |---|---|---|
-| 룰 (always) | `core` | 답변 언어, 영향 범위만큼 읽기, 컨벤션 우선, 근거·검증 증거 |
-| 룰 (always) | `coding` | 컨벤션·방법론 준수, 가독성, 주석 최소화, 범위 준수 |
+| 룰 (always) | `core` | 답변 언어, 영향 범위만큼 읽기, 컨벤션 우선, 근거·검증 증거, 진행·중단 기준, 보고 순서 |
+| 룰 (always) | `coding` | 컨벤션·방법론 준수, 가독성, 사다리(안 짜도 되는 길 먼저), 주석 최소화, 범위 준수 |
 | 룰 (always) | `backend-safety` | 마이그레이션, 트랜잭션·동시성 알림, 시크릿, 운영 환경 쓰기 금지 |
 | 룰 (always) | `knack` | 에이전트 설정은 하네스로 관리, 조회는 knack CLI로 필요한 부분만 |
 | 룰 (on-demand) | `git` | 커밋·브랜치·푸시·PR |
@@ -175,9 +179,10 @@ lib/persona.py          페르소나 조회·수정 (knack persona)
 bench/                  벤치 작업 예시
 bin/knack               CLI
 install.sh              설치/상태/제거
-tests/smoke.sh          임시 HOME에서 설치·조회·관리·훅·게이트 검증
+tests/smoke.sh          임시 HOME에서 설치·조회·관리·훅·모델 라우팅·게이트·벤치 검증
 .github/workflows/      push·PR 때 macOS(/bin/bash 3.2)·Ubuntu에서 smoke.sh 실행
 AGENTS.md               레포 작업 가이드 (CLAUDE.md 는 이를 import)
+CHANGELOG.md            변경 기록 (Unreleased 에 쌓음)
 ```
 
 ## 업데이트 · 제거
