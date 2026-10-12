@@ -23,7 +23,7 @@ description: 새 기능·동작 변경을 정책 점검 → 설계 승인 게이
 1. 요구사항: 목표·비목표, 테스트로 옮길 수 있는 성공 기준
 2. 정책 점검: 항목별 ✅ 명확(근거) / ❓ 불명확(질문) / ⚠️ 가정(기본값 제안)
 3. 코드 맥락: 가장 비슷한 기존 기능을 레퍼런스로 컨벤션 추출. `.onboarding/`이 있으면 필요한 섹션만
-4. 설계: 표준이면 `templates/PLAN.md` → `.design/<slug>/PLAN.md`. 스키마가 바뀌면 `db-migration` 적용. 고위험이면 `templates/GATES.md`도
+4. 설계: 표준이면 `templates/PLAN.md` → `.design/<slug>/PLAN.md`. `20-coding`의 사다리로 안 짜도 되는 길을 먼저 확인한다. 스키마가 바뀌면 `db-migration` 적용. 고위험이면 `templates/GATES.md`도
 5. 게이트 (아래)
 6. 구현: 레퍼런스와 같은 구조, `readable-code` 기준, 설계 밖 리팩토링 없음. 성공 기준 테스트는 먼저 실패를 확인하고 구현한다
 7. 검증: 빌드, 신규·영향 테스트, 린트·포맷터. 고위험이면 `knack gate run`
