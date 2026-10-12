@@ -49,7 +49,10 @@ case "$cmd" in
         { git -C "$KNACK_DIR" fetch -q && echo "받을 커밋 (pull 하지 않음):" && git -C "$KNACK_DIR" log --oneline 'HEAD..@{u}'; } 2>/dev/null || true
         exec "$KNACK_DIR/install.sh" --global "$@" ;;
     esac
-    git -C "$KNACK_DIR" pull --ff-only && exec "$KNACK_DIR/install.sh" --global "$@" ;;
+    # pull → 설치 → 점검. 앞 단계가 실패하면 그 상태로 멈춘다(exec 로 넘기지 않는 이유)
+    git -C "$KNACK_DIR" pull --ff-only || exit
+    "$KNACK_DIR/install.sh" --global "$@" || exit
+    exec python3 "$PY" doctor ;;
   uninstall) exec "$KNACK_DIR/install.sh" --uninstall "$@" ;;
   scan)      exec bash "$KNACK_DIR/skills/repo-onboarding/scripts/repo-scan.sh" "${1:-.}" ;;
   test)      exec bash "$KNACK_DIR/tests/smoke.sh" ;;

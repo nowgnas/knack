@@ -522,6 +522,13 @@ check "복사본 doctor 문제 없음" '"$CH" doctor > "$TMP/doctor2.txt" 2>&1; 
 # 복사본은 git 저장소가 아니라 pull 을 시도하면 실패한다
 check "update --help 는 pull 없이 도움말만" '"$CH" update --help > "$TMP/update-help.txt" 2>&1 && contains "$TMP/update-help.txt" "사용법: install.sh"'
 check "update --dry-run 은 pull 없이 설치 계획만" '"$CH" update --dry-run --agents claude > "$TMP/update-dry.txt" 2>&1 && contains "$TMP/update-dry.txt" "dry-run 완료"'
+check "update: pull 이 실패하면 설치로 넘어가지 않는다" '! "$CH" update --agents claude > "$TMP/update-nogit.txt" 2>&1 && ! contains "$TMP/update-nogit.txt" "완료: 변경"'
+# upstream 이 있는 클론에서는 pull → 설치 → doctor 까지 이어진다
+UPSTREAM="$TMP/upstream.git"; git init -q --bare "$UPSTREAM" 2>/dev/null
+( cd "$C" && git init -q && git add -A \
+  && git -c user.email=t@example.com -c user.name=t commit -qm init \
+  && git remote add origin "$UPSTREAM" && git push -q -u origin HEAD:main ) >/dev/null 2>&1
+check "update: pull → 설치 → doctor 까지 이어진다" '"$CH" update --agents claude > "$TMP/update-full.txt" 2>&1; contains "$TMP/update-full.txt" "완료: 변경" && contains "$TMP/update-full.txt" "결과: 문제"'
 "$C/install.sh" --uninstall --agents claude,codex > /dev/null
 
 echo "▶ 사용량 집계 (knack usage)"

@@ -183,7 +183,7 @@ AGENTS.md               레포 작업 가이드 (CLAUDE.md 는 이를 import)
 ## 업데이트 · 제거
 
 ```bash
-knack update       # git pull + 재설치
+knack update       # git pull + 재설치 + doctor (앞 단계가 실패하면 멈춤)
 knack reinstall    # 제거 후 다시 설치 (설치 상태가 꼬였거나 다른 클론으로 옮길 때)
 knack uninstall    # 하네스가 만든 링크·블록·훅만 제거
 ```

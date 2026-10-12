@@ -219,13 +219,13 @@ knack 은 백엔드 개발용 개인 에이전트 하네스입니다. 에이전�
 | `knack bench <init\|ab\|run [--baseline]\|compare\|list\|baseline>` | 작업 세트를 조건별로 실행·비교 (`knack bench --help`) |
 | `knack install [--dry-run] [--project <path>] [--agents claude,codex] [--force]` | 설치 (기본값: 글로벌) |
 | `knack reinstall [옵션]` | 제거 후 다시 설치. 설치 상태가 꼬였을 때, 또는 다른 클론으로 옮길 때 |
-| `knack status` / `knack update` / `knack uninstall` | 상태 / git pull 후 재설치 / 제거 |
+| `knack status` / `knack update` / `knack uninstall` | 상태 / git pull → 재설치 → doctor / 제거 |
 | `knack help [스킬]` · `knack scan [경로]` · `knack test` · `knack version` | 사용법 · 레포 스캔 · 스모크 테스트 · 버전 |
 
 ## 설치 · 업데이트
 ```bash
 git clone https://github.com/nowgnas/knack.git ~/knack && ~/knack/install.sh --global   # 새 노트북
-knack update                                                                              # 업데이트
+knack update                                                                              # 업데이트 (pull → 설치 → doctor)
 ```
 설치하거나 업데이트한 뒤에는 새 에이전트 세션부터 반영됩니다.
 
