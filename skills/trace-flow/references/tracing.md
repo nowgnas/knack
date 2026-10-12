@@ -31,3 +31,14 @@ trace-flow 스킬의 단계별 세부. `knack show ref tracing --section <번호
 ## 6. 응답과 실패 경로
 - 성공 응답 형태(DTO), 주요 예외가 어떤 HTTP 상태/에러코드로 매핑되는지
 - 부분 실패 시 롤백·보상 처리 여부
+
+## 7. 역방향 — 자원에서 사용처 찾기
+찾는 순서. 앞 단계에서 얻은 이름을 다음 단계의 검색어로 쓴다.
+
+1. **이름 양쪽 확보**: 물리 이름은 마이그레이션(Flyway SQL, EF Migrations)·매퍼 XML에서, 코드 이름은 엔티티에서 — Spring `@Table(name=)`·`@Column(name=)`, EF `ToTable()`·`HasColumnName()`. 둘이 다르면 둘 다로 검색한다.
+2. **매핑·리포지토리**: 엔티티를 쓰는 리포지토리·DAO·`DbSet<T>`. Spring Data는 메서드명 쿼리라 테이블 이름이 코드에 없다 — 엔티티 타입으로 역참조한다.
+3. **네이티브·동적 SQL**: `@Query(nativeQuery = true)`, Querydsl, MyBatis mapper XML(`${}` 포함), EF `FromSql`·`ExecuteSqlRaw`, Dapper 문자열. 여기는 테이블 이름으로 직접 검색한다.
+4. **쓰기 연산 분리**: `save`·`saveAll`·`@Modifying`·`SaveChanges`·`ExecuteUpdate`·`ExecuteDelete`, INSERT/UPDATE/DELETE 문자열. 읽기와 섞어 적으면 영향 평가를 할 수 없다.
+5. **코드 밖**: 배치 잡, 운영 스크립트, 마이그레이션 자체, 뷰·프로시저·트리거. 뷰를 거치면 뷰 이름으로 한 번 더 돈다.
+6. **토픽·큐·설정 키**: 설정 파일에서 값을 찾고(`application*.yml`, `appsettings*.json`), 그 키를 쓰는 `${...}`·`IOptions`·`@Value`를 역으로 찾는다. 프로듀서와 컨슈머 양쪽을 본다.
+7. **못 잡는 경로 적기**: 이름을 문자열로 조립하거나 설정값으로 받는 코드, 리플렉션, 다른 레포. 검색으로 확인할 수 없으면 그렇게 적는다.

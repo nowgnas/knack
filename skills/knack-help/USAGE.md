@@ -13,6 +13,7 @@ knack 은 백엔드 개발용 개인 에이전트 하네스입니다. 에이전�
 |---|---|---|---|
 | 처음 보는 레포 | "이 레포 파악해줘", "quick으로 온보딩", "deep 모드로 결제 도메인 위주로" | `repo-onboarding` | `.onboarding/ONBOARDING.md` 외 |
 | API 동작 이해 | "POST /api/orders 흐름 따라가줘" | `trace-flow` | `.onboarding/flows/*.md` |
+| 자원 사용처 찾기 | "orders 테이블 쓰는 곳 전부 찾아줘" | `trace-flow` (역방향) | `.onboarding/usages/*.md` |
 | 새 기능 | "주문 취소 API 추가해줘" (요구사항·정책 문서가 있으면 함께) | `feature-implementation` | 경량은 없음 · 표준은 `.design/<slug>/PLAN.md` |
 | 버그 | "이 버그 고쳐줘", "이 에러 고쳐줘" + 스택트레이스·로그 | `bug-fix` | 경량은 없음 · 그 밖에는 `.design/bug-<slug>/BUGFIX.md` |
 | 머지 전 리뷰 | "머지 전에 리뷰해줘" | `impl-review` | 대화 보고 · 고위험만 `.design/<slug>/REVIEW.md` |
@@ -34,9 +35,12 @@ knack 은 백엔드 개발용 개인 에이전트 하네스입니다. 에이전�
 - core(매 세션 주입, 15줄 이내)와 상세(`persona show <주제>` 로 필요할 때)를 나눕니다
 - 저장 후 사용자 승인을 받아 `knack install` 로 반영합니다
 
-### trace-flow — 요청 흐름 추적
-- 입력: `METHOD /path`, 토픽·큐 이름, 배치 잡, `Class.method`
-- 출력: 시퀀스 다이어그램, 단계별 표(`path:line`), 데이터 변경, 부수효과, 실패 경로
+### trace-flow — 흐름 추적과 사용처 역추적
+- 정방향 입력: `METHOD /path`, 토픽·큐 이름, 배치 잡, `Class.method`
+  - 출력: 시퀀스 다이어그램, 단계별 표(`path:line`), 데이터 변경, 부수효과, 실패 경로
+- 역방향 입력: 테이블·컬럼, 토픽·큐, 캐시 키, 설정 키 — "orders 테이블 쓰는 곳 전부 찾아줘"
+  - 출력: 읽는 곳과 쓰는 곳을 나눈 표(`path:line` + 진입점까지의 호출 경로), 코드 밖 접근(배치·마이그레이션·뷰), **누락 가능성과 확인 범위**, 스키마 변경 시 영향
+  - 스키마 변경·데이터 보정 전에 먼저 돌립니다. "전부 찾았다"는 주장에는 어디까지 확인했는지가 함께 있어야 합니다.
 
 ### feature-implementation — 기능 구현
 ```
