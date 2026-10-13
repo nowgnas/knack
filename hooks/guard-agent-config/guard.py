@@ -21,11 +21,14 @@ BLOCK_MARKERS = (("<!-- knack:start", "<!-- knack:end -->"), ("# knack:start", "
 WRITE_CMDS = {"cp", "mv", "ln", "rsync", "install", "mkdir", "rm", "rmdir", "touch", "tee",
               "unzip", "tar", "curl", "wget", "dd"}
 INPLACE_CMDS = {"sed", "perl"}  # -i 가 붙었을 때만 쓰기
+DEST_ONLY_CMDS = {"cp", "ln", "install", "rsync"}  # 원본은 읽기만 한다. mv 는 원본을 지우므로 넣지 않는다
 GIT_WRITE_SUB = {"clone", "init"}
-WRAPPERS = {"sudo", "command", "nohup", "time", "exec"}
+WRAPPERS = {"sudo", "command", "nohup", "time", "exec", "env", "xargs", "nice"}
+WRAPPER_ARG_OPTS = {"-u", "-g", "-I", "-n", "-L", "-P", "-d", "-s", "-E"}  # 다음 토큰을 값으로 받는 래퍼 옵션
+FIND_EXEC = {"-exec", "-execdir", "-ok", "-okdir"}
 SHELLS = {"bash", "sh", "zsh", "dash", "ksh"}
 ASSIGN = re.compile(r"^[A-Za-z_][A-Za-z_0-9]*=")
-HEREDOC = re.compile(r"<<-?\s*(['\"]?)(\w+)\1")
+HEREDOC = re.compile(r"(?<!<)<<(?!<)-?\s*(['\"]?)(\w+)\1")  # <<< 는 히어스트링이라 본문이 없다
 SEGMENT = re.compile(r"\|\||&&|[;|\n]")
 KNACK_CMD = re.compile(r"^\s*\(?\s*(knack\s|\S*/install\.sh\b)")
 CD = re.compile(r"""^\s*cd\s+("[^"]*"|'[^']*'|[^\s;&|]+)\s*$""")
@@ -81,17 +84,23 @@ def protected_file(path, cwd):
 
 
 def block_span(path):
-    """파일에 하네스 블록이 있으면 (전체 내용, 시작, 끝) 오프셋. 없으면 None."""
+    """파일에 하네스 블록이 있으면 (전체 내용, 시작, 끝) 오프셋. 없으면 None.
+
+    install.sh 는 마커를 줄 맨 앞에 쓴다. 줄 중간에 적힌 마커(문서의 예시 등)는 블록이 아니다.
+    하네스 레포는 마커를 코드·문서로 담고 있어 블록 판정에서 뺀다.
+    """
+    if inside(os.path.realpath(path), KNACK):
+        return None
     try:
         text = open(path, encoding="utf-8", errors="replace").read()
     except OSError:
         return None
     for start, end in BLOCK_MARKERS:
-        i = text.find(start)
-        if i < 0:
+        m = re.search("^" + re.escape(start), text, re.M)
+        if not m:
             continue
-        j = text.find(end, i)
-        return text, i, (j + len(end) if j >= 0 else len(text))
+        e = re.compile("^" + re.escape(end), re.M).search(text, m.start())
+        return text, m.start(), (e.end() if e else len(text))
     return None
 
 
@@ -181,23 +190,92 @@ def scan(seg):
         i += 1
     if cur:
         (targets if redirect else toks).append(cur)
-    while toks and (toks[0] in WRAPPERS or ASSIGN.match(toks[0])):
-        toks = toks[1:]
-    return toks, targets
+    return unwrap(toks), targets
 
 
-def is_write(words):
-    """이 명령이 파일을 쓰는가. 명령 이름으로만 본다 — 읽기 명령의 인자는 막지 않는다."""
+def unwrap(toks):
+    """sudo·env·xargs 같은 래퍼와 그 옵션, 변수 대입을 걷어내 실제로 실행되는 명령부터 돌려준다."""
+    i = 0
+    while i < len(toks):
+        if ASSIGN.match(toks[i]):
+            i += 1
+        elif os.path.basename(toks[i]) in WRAPPERS:
+            i += 1
+            while i < len(toks) and toks[i].startswith("-"):
+                i += 2 if toks[i] in WRAPPER_ARG_OPTS else 1
+        else:
+            break
+    return toks[i:]
+
+
+def write_targets(words):
+    """이 명령이 쓰는 경로들. 쓰기 명령이 아니면 빈 목록 — 읽기 명령과 복사 원본은 막지 않는다."""
     if not words:
-        return False
-    name = os.path.basename(words[0])
+        return []
+    name, args = os.path.basename(words[0]), words[1:]
+    pos = [w for w in args if w and not w.startswith("-")]
+    if name in DEST_ONLY_CMDS:
+        for n, w in enumerate(args):
+            if w in ("-t", "--target-directory") and n + 1 < len(args):
+                return [args[n + 1]]
+            if w.startswith("--target-directory="):
+                return [w.split("=", 1)[1]]
+        return pos[-1:]
+    if name == "dd":
+        return [w[3:] for w in args if w.startswith("of=")]
+    if name == "tar":
+        return tar_targets(args)
+    if name == "find":
+        return find_targets(args)
     if name in WRITE_CMDS:
-        return True
+        return pos
     if name in INPLACE_CMDS:
-        return any(w.startswith("-i") for w in words[1:])
-    if name == "git":
-        return bool(set(words[1:2]) & GIT_WRITE_SUB)
-    return False
+        return pos if any(w.startswith("-i") for w in args) else []
+    if name == "git" and args[:1] and args[0] in GIT_WRITE_SUB:
+        return pos[1:]
+    return []
+
+
+def tar_targets(args):
+    """묶을 때(-c)는 아카이브 파일만 쓴다. 풀 때나 모드를 모를 때는 위치 인자 전부를 본다."""
+    clusters = [a for a in args if a.startswith("-") and not a.startswith("--")]
+    if args and not args[0].startswith("-"):  # tar czf a.tgz ... 처럼 대시 없는 옛 형식
+        clusters.insert(0, args[0])
+    letters = "".join(c.lstrip("-") for c in clusters)
+    if "c" not in letters or "x" in letters:
+        return [a for a in args if a and not a.startswith("-")]
+    for n, a in enumerate(args):
+        if a.startswith("--file="):
+            return [a[len("--file="):]]
+        if a in clusters and "f" in a and n + 1 < len(args):
+            return [args[n + 1]]
+    return []  # -f 가 없으면 표준 출력으로 내보낸다
+
+
+def find_targets(args):
+    """find 는 -delete 나 -exec 로 쓰기 명령을 돌릴 때만 쓴다. 대상은 탐색 시작 경로다."""
+    rest = list(args)
+    while rest and rest[0] in ("-L", "-H", "-P"):
+        rest.pop(0)
+    roots = []
+    for a in rest:
+        if a.startswith("-") or a in ("(", "!"):
+            break
+        roots.append(a)
+    roots = roots or ["."]
+    if "-delete" in rest:
+        return roots
+    for n, a in enumerate(rest):
+        if a in FIND_EXEC:
+            sub = []
+            for w in rest[n + 1:]:
+                if w in (";", "\\;", "\\", "+"):  # ; 는 조각 구분자로 잘려 \ 만 남기도 한다
+                    break
+                sub.append(w)
+            inner = write_targets(unwrap(sub))
+            if inner:
+                return roots + [w for w in inner if "{}" not in w]
+    return []
 
 
 def skills_cli(words):
@@ -228,11 +306,7 @@ def check_command(cmd, cwd):
             if t.startswith("&") or t == "/dev/null":
                 continue
             check_path(t, cwd)
-        if not is_write(words):
-            continue
-        for w in words[1:]:
-            if not w or w.startswith("-"):
-                continue
+        for w in write_targets(words):
             check_path(w, cwd)
 
 

@@ -22,3 +22,6 @@
 ### Fixed
 - Count plugin skills from the plugin manifest, falling back to a recursive scan, so plugins that nest skills one level deeper are no longer reported as empty.
 - Keep the model routing index in the Codex instruction block: `tier_rank_of` assumed a single model name and crashed on candidate lists, and `install.sh` hid the failure.
+- Stop the guard hook from blocking edits to the harness repo itself and to files that only mention a block marker: blocks are recognised only by markers at the start of a line, and the harness repo is exempt.
+- Close guard hook bypasses: a here-string (`<<<`) no longer hides the following lines, `env`/`xargs`/`nice` are unwrapped, and `find -delete`/`-exec <write>` count as writes.
+- Judge `cp`/`ln`/`install`/`rsync` by their destination only and `tar -c` by its archive file, so backing up a protected file or folder is no longer blocked (`mv` still checks its source).
