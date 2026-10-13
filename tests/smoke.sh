@@ -290,6 +290,24 @@ allow_case "블록을 그대로 담은 Write" "$(pay Write file_path="$BLK" cont
 deny_case "블록 있는 파일 리다이렉트 덮어쓰기" "$(pay Bash command="echo x > $BLK")"
 deny_case "TOML 블록 안 Edit" "$(pay Edit file_path="$TOML" old_string='[agents.a]' new_string=x)"
 allow_case "TOML 블록 밖 Edit" "$(pay Edit file_path="$TOML" old_string='x = 1' new_string='x = 2')"
+MID="$TMP/mention.md"; printf 'intro\n설치하면 `<!-- knack:start` 블록이 생긴다\ntail\n' > "$MID"
+allow_case "줄 중간에 적힌 마커는 블록이 아님" "$(pay Edit file_path="$MID" old_string=tail new_string=x)"
+allow_case "하네스 레포 파일 Write (마커를 문서로 담음)" "$(pay Write file_path="$KNACK_DIR/README.md" content=x)"
+allow_case "하네스 레포 파일 끝 Edit" "$(pay Edit file_path="$KNACK_DIR/README.md" old_string=x new_string=y)"
+
+# 우회·오탐 회귀
+deny_case "히어스트링 뒤 줄의 rm" "$(pay Bash command="$(printf 'cat <<< hi\nrm -rf ~/.claude/skills/foo')")"
+deny_case "env 래퍼 + rm" '{"tool_name":"Bash","tool_input":{"command":"env -u X Y=1 rm -rf ~/.claude/skills/foo"}}'
+deny_case "xargs 래퍼 + rm" '{"tool_name":"Bash","tool_input":{"command":"echo foo | xargs -I {} rm -rf ~/.claude/skills/{}"}}'
+deny_case "find -delete" '{"tool_name":"Bash","tool_input":{"command":"find ~/.claude/skills/foo -name x -delete"}}'
+deny_case "find -exec rm" '{"tool_name":"Bash","tool_input":{"command":"find ~/.claude/agents -name a.md -exec rm {} \\;"}}'
+allow_case "find -exec 읽기" '{"tool_name":"Bash","tool_input":{"command":"find ~/.claude/skills -name SKILL.md -exec head -3 {} +"}}'
+allow_case "블록 있는 파일을 /tmp 로 백업 (cp 원본)" "$(pay Bash command="cp $BLK /tmp/bak.md")"
+deny_case "블록 있는 파일로 cp 덮어쓰기 (cp 대상)" "$(pay Bash command="cp /tmp/x.md $BLK")"
+deny_case "mv 는 원본도 본다" "$(pay Bash command="mv $BLK /tmp/x.md")"
+allow_case "보호 폴더를 tar 로 묶어 /tmp 에 저장" '{"tool_name":"Bash","tool_input":{"command":"tar -czf /tmp/b.tgz ~/.claude/skills"}}'
+deny_case "보호 폴더로 tar 풀기" '{"tool_name":"Bash","tool_input":{"command":"tar -xzf /tmp/b.tgz -C ~/.claude/skills"}}'
+deny_case "dd of= 보호 폴더" '{"tool_name":"Bash","tool_input":{"command":"dd if=/tmp/a of=$HOME/.claude/agents/a.md"}}'
 
 echo "▶ 재설치·다중 클론"
 # 사용자용 클론(레포를 수정하는 폴더와 별도)에서 설치·재설치가 되는지
