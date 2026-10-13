@@ -9,7 +9,7 @@ KNACK_DIR="$TMP/knack"; mkdir -p "$KNACK_DIR"
 (cd "$REPO_DIR" && tar cf - --exclude .git .) | (cd "$KNACK_DIR" && tar xf -)
 cp "$REPO_DIR/tests/fixtures/models.json" "$KNACK_DIR/models.json"
 export HOME="$TMP/home" CODEX_HOME="$TMP/home/.codex"
-unset ORCA_CODEX_HOME
+unset ORCA_CODEX_HOME XDG_CONFIG_HOME  # 러너(ubuntu)가 XDG_CONFIG_HOME 을 두면 models.local.json 을 가짜 HOME 밖에서 찾는다
 mkdir -p "$HOME/.claude/agents" "$CODEX_HOME"
 INSTALL="$KNACK_DIR/install.sh"
 H="$HOME/.local/bin/knack"
