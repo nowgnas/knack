@@ -47,6 +47,19 @@ for f in "$KNACK_DIR"/rules/*.md; do
 done
 check "USAGE.md 에 모든 스킬 안내" '( for s in $(ls "$KNACK_DIR/skills"); do grep -q "\`$s\`" "$KNACK_DIR/skills/knack-help/USAGE.md" || exit 1; done )'
 check "knack doctor (레포 구조·모델 라우팅) 문제 없음" 'python3 "$REPO_DIR/lib/knack.py" doctor > "$TMP/doctor0.txt" 2>&1 || grep -q "문제 0" "$TMP/doctor0.txt"'
+# 이 파일 10행이 models.json 을 픽스처로 갈아끼우므로, agents/*.md 가 쓰는 작업 유형이
+# 픽스처에 없으면 models-sync 가 멈춰 서브에이전트 생성이 통째로 실패한다
+check "스모크 픽스처가 서브에이전트 작업 유형을 모두 담는다" 'python3 - "$REPO_DIR" <<EOF
+import json, pathlib, re, sys
+repo = pathlib.Path(sys.argv[1])
+fixture = set(json.loads((repo / "tests/fixtures/models.json").read_text())["tasks"])
+missing = {}
+for f in sorted((repo / "agents").glob("*.md")):
+    m = re.search(r"^task: *(\S+)", f.read_text(), re.M)
+    if m and m.group(1) not in fixture:
+        missing[f.name] = m.group(1)
+assert not missing, "tests/fixtures/models.json 에 없는 작업 유형: " + repr(missing)
+EOF'
 
 echo "▶ 글로벌 설치"
 printf '@RTK.md\n' > "$HOME/.claude/CLAUDE.md"
