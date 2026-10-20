@@ -100,6 +100,20 @@
         "review"
       ]
     },
+    "sql": {
+      "tier": "deep",
+      "desc": "SP·쿼리 분석",
+      "keywords": [
+        "쿼리",
+        "SP",
+        "프로시저",
+        "인덱스",
+        "실행계획",
+        "stored procedure",
+        "query",
+        "index"
+      ]
+    },
     "explore": {
       "tier": "standard",
       "desc": "코드 탐색·온보딩·흐름 추적",
@@ -113,6 +127,19 @@
         "onboard",
         "explain",
         "trace"
+      ]
+    },
+    "verify": {
+      "tier": "standard",
+      "desc": "빌드·테스트 실행·실패 축소",
+      "keywords": [
+        "테스트",
+        "빌드",
+        "검증",
+        "돌려봐",
+        "test",
+        "build",
+        "verify"
       ]
     },
     "git": {
