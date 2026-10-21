@@ -104,6 +104,7 @@ knack gate reverify .design/<slug>/GATES.md   # 충족된 것까지 전부 다�
 | 룰 (always) | `knack` | 에이전트 설정은 하네스로 관리, 조회는 knack CLI로 필요한 부분만 |
 | 룰 (on-demand) | `git` | 커밋·브랜치·푸시·PR |
 | 룰 (on-demand) | `obsidian-daily` | Obsidian 업무 Daily 노트 읽기·작성. 설정은 `~/.config/knack/obsidian-vault.local.yml`(양식: `templates/`) |
+| 룰 (on-demand) | `obsidian-ticket` | 티켓 관련 작업 시작 시 브랜치명의 티켓 키로 Obsidian 티켓 노트를 먼저 읽기 |
 | 훅 | `guard-agent-config` | 에이전트 설정 폴더에 직접 쓰는(설치·삭제) 명령과 지시·설정 파일의 knack 블록 수정을 막고 knack 명령을 안내 |
 | 훅 | `knack-stale` | 설치본이 레포와 다르면 세션 시작 때 알림 (Claude) |
 | 서브에이전트 | `impl-reviewer` | 구현 맥락 없는 독립 리뷰 (읽기 전용) |

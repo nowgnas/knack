@@ -26,3 +26,9 @@ daily:
       source_section: "Tomorrow"
       destination_section: "To Do"
       marker: ""
+
+work:
+  folder: Work
+  frontmatter:
+    type: work
+    ticket_key: jira
