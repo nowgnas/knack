@@ -31,6 +31,7 @@ toml_ok() { [ -z "$TOMLPY" ] || "$TOMLPY" -c 'import tomllib,sys; tomllib.load(o
 TOML_NOTE="${TOMLPY:+tomllib}"; TOML_NOTE="${TOML_NOTE:-tomllib 없음 — 문법 검사 생략}"
 
 echo "▶ 구조"
+check "모델 설치·doctor 회귀 테스트" 'python3 "$KNACK_DIR/tests/test_model_sync.py"'
 for f in "$KNACK_DIR"/skills/*/SKILL.md; do
   d="$(dirname "$f")"; s="$(basename "$d")"
   check "$s: frontmatter name 일치" '[ "$(sed -n "s/^name: *//p" "$f" | head -1)" = "$s" ]'

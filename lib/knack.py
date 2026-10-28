@@ -712,6 +712,12 @@ def cmd_doctor(_a):
     missing += [f"agent:{g['name']}" for g in agents if False in agent_installed(g).values()]
     missing += [f"rule:{r['name']}" for r in rules if False in rule_installed(r).values()]
     missing += [f"hook:{h['name']}" for h in hooks if False in hook_installed(h).values()]
+    if cfg and CODEX_CONFIG.is_file():
+        text = CODEX_CONFIG.read_text(encoding="utf-8")
+        if set_block(restore_toml_start(text), TOML_START, TOML_END, codex_roles_block()) != text:
+            missing.insert(0, "codex:역할 블록")
+        if codex_main_config(text, cfg) != text:
+            missing.insert(0, "codex:기본 모델")
     if missing:
         warn(f"미설치·갱신 필요 {len(missing)}건: {', '.join(missing[:8])} → knack install")
     else:
@@ -1217,6 +1223,8 @@ def render_claude_agent(g, cfg):
 def render_codex_role(g, cfg):
     task = g["meta"].get("task")
     model, effort = resolve_model(cfg, task, "codex") if task else (None, None)
+    if model and not model_ok("codex", model):
+        model, effort = None, None
     _, body = read_md(g["path"])
     out = [f"# knack: {rel(g['path'])} 에서 생성 · 직접 수정 금지"]
     if model:
@@ -1292,6 +1300,9 @@ def toml_top(text, key):
 def toml_set_top(text, key, value):
     lines = text.split("\n")
     first_table = next((i for i, l in enumerate(lines) if re.match(r"\s*\[", l)), len(lines))
+    if value is None:
+        return "\n".join([line for line in lines[:first_table]
+                          if not re.match(rf"\s*{re.escape(key)}\s*=", line)] + lines[first_table:])
     new = f"{key} = {json.dumps(value)}"
     for i in range(first_table):
         if re.match(rf"\s*{re.escape(key)}\s*=", lines[i]):
@@ -1301,6 +1312,15 @@ def toml_set_top(text, key, value):
     # 간격(키 뒤 빈 줄)으로 맞춘다. 그러지 않으면 다음 실행이 같은 내용을 계속 STALE 로 본다.
     sep = [] if not lines or not lines[0].strip() or re.match(r'\s*[\w."\'-]+\s*=', lines[0]) else [""]
     return "\n".join([new] + sep + lines)
+
+
+def codex_main_config(text, cfg):
+    model, effort = resolve_model(cfg, "main", "codex")
+    # 사용 가능한 후보가 없으면 설치가 CLI의 기존 기본값을 망가뜨리지 않는다.
+    if not model or not model_ok("codex", model):
+        return text
+    text = toml_set_top(text, "model", model)
+    return toml_set_top(text, "model_reasoning_effort", effort)
 
 
 def agent_installed(g):
@@ -1575,11 +1595,7 @@ def cmd_models_sync(a):
             say("OK", f"{pretty(f)} (서브에이전트 역할 블록)")
         if not removing and not a.no_main:
             model, effort = resolve_model(cfg, "main", "codex")
-            updated = new
-            if model:
-                updated = toml_set_top(updated, "model", model)
-            if effort:
-                updated = toml_set_top(updated, "model_reasoning_effort", effort)
+            updated = codex_main_config(new, cfg)
             current = model_label(toml_top(new, "model"), toml_top(new, "model_reasoning_effort"))
             if updated == new:
                 say("OK", f"{pretty(f)} 세션 모델 {current}")

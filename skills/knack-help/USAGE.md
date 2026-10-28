@@ -223,6 +223,9 @@ knack 은 백엔드 개발용 개인 에이전트 하네스입니다. 에이전�
 | `knack help [스킬]` · `knack scan [경로]` · `knack test` · `knack version` | 사용법 · 레포 스캔 · 스모크 테스트 · 버전 |
 
 ## 설치 · 업데이트
+
+Codex 모델 후보가 모두 없으면 기존 기본 모델을 유지하고 서브에이전트 역할의 모델 지정을 생략합니다. 선택된 모델이 지원하지 않는 effort는 기존 최상위 설정에서도 제거합니다. `knack doctor`는 역할 설정 블록과 기본 모델의 갱신 필요 여부도 확인합니다.
+
 ```bash
 git clone https://github.com/nowgnas/knack.git ~/knack && ~/knack/install.sh --global   # 새 노트북
 knack update                                                                              # 업데이트 (pull → 설치 → doctor)
