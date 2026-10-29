@@ -7,6 +7,7 @@
 import json
 import os
 import re
+import shlex
 import sys
 
 SCHEMA_VERSION = 1
@@ -20,6 +21,35 @@ def read(path, limit=512 * 1024):
             return f.read(limit)
     except OSError:
         return ""
+
+
+def strip_comments(text, xml=False):
+    """주석 속 단어(예: '// spotless')를 플러그인 근거로 쓰지 않도록 지운다."""
+    if xml:
+        return re.sub(r"<!--.*?-->", "", text, flags=re.S)
+    text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
+    return re.sub(r"(?m)(^|[^:])//[^\n]*", r"\1", text)
+
+
+# Gradle: java 계열 플러그인이 적용돼야 testClasses·test 태스크가 생긴다
+JVM_PLUGIN = re.compile(
+    r"""id\s*\(?\s*["'](java|java-library|application|war|org\.springframework\.boot|org\.jetbrains\.kotlin\.[\w.-]+)["']"""
+    r"""|apply\s*\(?\s*plugin\s*[:=]\s*["'](java|java-library|application|war|org\.springframework\.boot|kotlin)["']"""
+    r"""|kotlin\s*\(\s*["']jvm["']\s*\)|`java(-library)?`|(?m:^\s*(java|`java-library`|application)\s*$)|\{\s*java\s*\}"""
+    r"""|alias\s*\(\s*libs\.plugins\.(spring[\w.]*boot|kotlin[\w.]*)\s*\)""")
+GRADLE_PLUGIN = {
+    "spotless": re.compile(r"com\.diffplug\.spotless|libs\.plugins\.spotless|\bspotless\s*\{"),
+    "ktlint": re.compile(r"org\.jlleitschuh\.gradle\.ktlint|libs\.plugins\.ktlint|\bktlint\s*\{"),
+    "checkstyle": re.compile(r"""id\s*\(?\s*["']checkstyle["']|plugin\s*[:=]\s*["']checkstyle["']|(?m:^\s*checkstyle\s*$)|\bcheckstyle\s*\{"""),
+}
+EF_PROVIDERS = {
+    "npgsql.entityframeworkcore.postgresql": "postgresql",
+    "microsoft.entityframeworkcore.sqlserver": "sqlserver",
+    "microsoft.entityframeworkcore.sqlite": "sqlite",
+    "pomelo.entityframeworkcore.mysql": "mysql",
+    "mysql.entityframeworkcore": "mysql",
+    "oracle.entityframeworkcore": "oracle",
+}
 
 
 def walk(root):
@@ -59,45 +89,65 @@ def migrations(root, rel, text):
     return tool, ev, "testcontainers" in low
 
 
+def gradle_files(base):
+    """하위 모듈 빌드 파일(2단계)과 buildSrc·build-logic 의 컨벤션 플러그인."""
+    for b, dirs, fs in os.walk(base):
+        r = os.path.relpath(b, base)
+        dirs[:] = [d for d in dirs if not d.startswith(".") and d not in SKIP_DIRS]
+        conv = r.split(os.sep)[0] in ("buildSrc", "build-logic")
+        if r.count(os.sep) >= (6 if conv else 2):
+            dirs[:] = []
+        for f in fs:
+            if re.fullmatch(r"build\.gradle(\.kts)?", f) or \
+                    (conv and f.endswith((".gradle", ".gradle.kts"))):
+                yield os.path.join(b, f)
+
+
 def gradle_unit(root, rel, files):
     base = os.path.join(root, rel)
     ev = [f for f in files if re.fullmatch(r"(build|settings)\.gradle(\.kts)?|gradlew", f)]
-    text = ""
-    for b, _, fs in os.walk(base):  # 하위 모듈 빌드 파일까지 (플러그인·의존성 확인용)
-        if os.path.relpath(b, base).count(os.sep) >= 2 or any(p in SKIP_DIRS for p in b.split(os.sep)):
-            continue
-        for f in fs:
-            if re.fullmatch(r"build\.gradle(\.kts)?|libs\.versions\.toml", f):
-                text += read(os.path.join(b, f))
+    text = strip_comments("".join(read(p) for p in gradle_files(base)))
     w = "./gradlew" if "gradlew" in files else None
     g = w or "gradle"
-    low = text.lower()
+    jvm = bool(JVM_PLUGIN.search(text))
     fmt = None
-    if "spotless" in low:
+    if GRADLE_PLUGIN["spotless"].search(text):
         fmt = {"check": f"{g} spotlessCheck", "apply": f"{g} spotlessApply", "evidence": "spotless 플러그인"}
-    elif "ktlint" in low:
+    elif GRADLE_PLUGIN["ktlint"].search(text):
         fmt = {"check": f"{g} ktlintCheck", "apply": f"{g} ktlintFormat", "evidence": "ktlint 플러그인"}
-    lint = f"{g} checkstyleMain" if "checkstyle" in low else None
+    lint = f"{g} checkstyleMain" if jvm and GRADLE_PLUGIN["checkstyle"].search(text) else None
     tool, mev, tc = migrations(root, rel, text)
-    return {
+    settings = strip_comments("".join(read(os.path.join(base, f)) for f in ("settings.gradle", "settings.gradle.kts")))
+    modules = sorted({m if m.startswith(":") else ":" + m
+                      for inc in re.findall(r"\binclude\b\s*\(?([^\n)]*)", settings)
+                      for m in re.findall(r"""["']([^"']+)["']""", inc)})
+    single = f"{g} test --tests '<패키지.클래스명>'" if not modules else f"{g} <모듈>:test --tests '<패키지.클래스명>'"
+    unit = {
         "kind": "gradle", "dir": rel, "evidence": ev, "wrapper": w,
         "commands": {
-            "compile": f"{g} testClasses",
-            "test": f"{g} test",
-            "single_test": f"{g} test --tests '<패키지.클래스명>'",
-            "format": fmt, "lint": lint, "full": f"{g} build",
+            "compile": f"{g} testClasses" if jvm else None,
+            "test": f"{g} test" if jvm else None,
+            "single_test": single if jvm else None,
+            "format": fmt, "lint": lint, "full": f"{g} build" if jvm else None,
         },
-        "migration": {"tool": tool, "evidence": mev, "testcontainers": tc},
+        "migration": {"tool": tool, "evidence": mev, "testcontainers_dependency": tc},
+        "modules": modules,
     }
+    if not jvm:
+        unit["note"] = f"java·kotlin·spring boot 플러그인 적용 근거를 못 찾았습니다. `{g} tasks --all`로 태스크를 확인하세요."
+    return unit
 
 
 def maven_unit(root, rel, files):
     base = os.path.join(root, rel)
     text = read(os.path.join(base, "pom.xml"))
-    for b, _, fs in os.walk(base):  # 자식 모듈 pom 까지
-        if b != base and "pom.xml" in fs and os.path.relpath(b, base).count(os.sep) < 2 \
-                and not any(p in SKIP_DIRS for p in b.split(os.sep)):
+    for b, dirs, fs in os.walk(base):  # 자식 모듈 pom 까지 (2단계)
+        dirs[:] = [d for d in dirs if not d.startswith(".") and d not in SKIP_DIRS]
+        if os.path.relpath(b, base).count(os.sep) >= 1:
+            dirs[:] = []
+        if b != base and "pom.xml" in fs:
             text += read(os.path.join(b, "pom.xml"))
+    text = strip_comments(text, xml=True)
     w = "./mvnw" if "mvnw" in files else None
     m = w or "mvn"
     low = text.lower()
@@ -114,15 +164,29 @@ def maven_unit(root, rel, files):
             "single_test": f"{m} -B test -Dtest='<클래스명>' -Dsurefire.failIfNoSpecifiedTests=false",
             "format": fmt, "lint": lint, "full": f"{m} -B verify",
         },
-        "migration": {"tool": tool, "evidence": mev, "testcontainers": tc},
+        "migration": {"tool": tool, "evidence": mev, "testcontainers_dependency": tc},
     }
+
+
+def test_code_calls(root, test_projects):
+    """테스트 코드가 EF 마이그레이션을 실제로 적용하는지(Migrate) 아니면 건너뛰는지(EnsureCreated)."""
+    found = {"migrate": False, "ensure_created": False}
+    for p in test_projects:
+        for b, dirs, fs in os.walk(os.path.join(root, os.path.dirname(p))):
+            dirs[:] = [d for d in dirs if not d.startswith(".") and d not in SKIP_DIRS]
+            for f in fs:
+                if f.endswith(".cs"):
+                    t = read(os.path.join(b, f))
+                    found["migrate"] |= bool(re.search(r"\.Migrate(Async)?\s*\(", t))
+                    found["ensure_created"] |= bool(re.search(r"\.EnsureCreated(Async)?\s*\(", t))
+    return found
 
 
 def dotnet_unit(root, rel, target, projects):
     """target: .sln/.slnx 또는 단일 .csproj. projects: 이 단위에 속한 csproj 상대 경로."""
     text = "".join(read(os.path.join(root, p)) for p in projects)
     low = text.lower()
-    t = f" {target}" if target else ""
+    t = f" {shlex.quote(target)}" if target else ""
     ef = "microsoft.entityframeworkcore" in low
     mig_dirs = []
     for p in projects:
@@ -130,7 +194,7 @@ def dotnet_unit(root, rel, target, projects):
         if os.path.isdir(os.path.join(root, d)):
             mig_dirs.append(d)
     tools = read(os.path.join(root, ".config", "dotnet-tools.json")).lower()
-    tests = [p for p in projects if re.search(r"(test|tests|spec)s?\.csproj$", p.lower())
+    tests = [p for p in projects if re.search(r"(^|[./\\_-])(tests?|specs?|integrationtests?)\.csproj$", p.lower())
              or "microsoft.net.test.sdk" in read(os.path.join(root, p)).lower()]
     ev = [target] if target else []
     if os.path.isfile(os.path.join(root, "global.json")):
@@ -142,15 +206,17 @@ def dotnet_unit(root, rel, target, projects):
             "test": f"dotnet test{t}" if tests else None,
             "single_test": f'dotnet test{t} --filter "FullyQualifiedName~<클래스명>"' if tests else None,
             "format": {"check": f"dotnet format{t} --verify-no-changes", "apply": f"dotnet format{t}",
-                       "evidence": "dotnet SDK 기본 포함(6 이상)"},
+                       "evidence": "dotnet SDK 6 이상 기본 포함(SDK 버전 확인 필요)"},
             "lint": None, "full": f"dotnet build{t} && dotnet test{t}" if tests else f"dotnet build{t}",
         },
         "test_projects": tests,
         "migration": {
             "tool": "ef-core" if ef and (mig_dirs or "entityframeworkcore.design" in low) else None,
             "evidence": mig_dirs + (["Microsoft.EntityFrameworkCore.Design"] if "entityframeworkcore.design" in low else []),
-            "testcontainers": "testcontainers" in low,
+            "testcontainers_dependency": "testcontainers" in low,
             "dotnet_ef_local_tool": "dotnet-ef" in tools,
+            "ef_providers": sorted({v for k, v in EF_PROVIDERS.items() if re.search(re.escape(k) + r"(\.core)?[\"';]", low)}),
+            "tests_call": test_code_calls(root, tests) if ef else None,
         },
     }
 
@@ -194,10 +260,14 @@ def detect(root):
     notes = []
     if not units:
         notes.append("Gradle·Maven·.NET 빌드 파일을 찾지 못했습니다. README·CI 설정에서 명령을 찾으세요.")
+    else:
+        notes.append("single_test 는 이름이 틀려도 0건으로 통과할 수 있습니다. 출력에서 실행된 테스트 수가 1 이상인지 확인하세요.")
     if len(units) > 1:
         notes.append("빌드 단위가 여럿입니다. 바꾼 파일이 속한 단위(run_dir)만 돌리세요.")
     ci = [os.path.join(d, f) for d in (".github/workflows",) if os.path.isdir(os.path.join(root, d))
           for f in sorted(os.listdir(os.path.join(root, d))) if f.endswith((".yml", ".yaml"))]
+    ci += [f for f in (".gitlab-ci.yml", "azure-pipelines.yml", "Jenkinsfile", "bitbucket-pipelines.yml")
+           if os.path.isfile(os.path.join(root, f))]
     return {"schema_version": SCHEMA_VERSION, "root": root, "units": units, "ci_files": ci, "notes": notes}
 
 
