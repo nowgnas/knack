@@ -8,11 +8,13 @@
 파일은 UTF-8(BOM 허용) 또는 BOM 있는 UTF-16 이어야 한다.
 종료 코드: 0 정상 · 1 강제 수단 없는 재발 · 2 사용법 오류·읽을 수 없는 파일
 """
+import os
 import re
 import sys
 from pathlib import Path
 
-TAG = re.compile(r"(?<![\w-])mistake:([a-z0-9][a-z0-9-]*[a-z0-9]|[a-z0-9])(?![\w-])", re.IGNORECASE)
+# 경계는 ASCII 로만 본다: "mistake:missing-tx가" 처럼 한국어 조사가 바로 붙어도 태그로 센다.
+TAG = re.compile(r"(?<![A-Za-z0-9_-])mistake:([a-z0-9][a-z0-9-]*[a-z0-9]|[a-z0-9])(?![A-Za-z0-9_-])", re.IGNORECASE)
 PLACEHOLDER = re.compile(r"^<.*>$")
 SKIP_DIRS = {".git", "node_modules", "build", "bin", "obj", "target", ".gradle"}
 REPEAT = 2
@@ -23,7 +25,10 @@ class Unreadable(Exception):
 
 
 def read_text(p):
-    data = p.read_bytes()
+    try:
+        data = p.read_bytes()
+    except OSError as e:
+        raise Unreadable(f"{p}: 읽을 수 없다 ({e.strerror or e})")
     try:
         if data.startswith((b"\xff\xfe", b"\xfe\xff")):
             return data.decode("utf-16")
@@ -37,9 +42,14 @@ def tags_in(text):
 
 
 def bugfix_files(repo):
-    for p in sorted(repo.rglob("BUGFIX.md")):
-        if not SKIP_DIRS.intersection(p.relative_to(repo).parts[:-1]):
-            yield p
+    """BUGFIX.md 를 찾는다. 빌드 폴더와, .git 이 있는 하위 폴더(worktree·중첩 레포 복사본)는 건너뛴다."""
+    found = []
+    for root, dirs, files in os.walk(repo):
+        here = Path(root)
+        dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS and not (here / d / ".git").exists())
+        if "BUGFIX.md" in files:
+            found.append(here / "BUGFIX.md")
+    return sorted(found)
 
 
 def collect(repo):

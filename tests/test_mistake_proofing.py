@@ -88,6 +88,18 @@ class Mistakes(unittest.TestCase):
         write(self.d, ".design/bug-c/BUGFIX.md", "mistake:abcd\n")
         self.assertEqual(run("check", self.d).returncode, 1)
 
+    def test_korean_particle_worktree_and_unreadable(self):
+        write(self.d, ".design/bug-a/BUGFIX.md", "mistake:missing-tx가 또 났다\n")
+        write(self.d, ".design/bug-b/BUGFIX.md", "실수 태그: mistake:missing-tx\n")
+        self.assertEqual(run("check", self.d).returncode, 1)
+        write(self.d, ".claude/worktrees/w1/.git", "gitdir: x\n")
+        write(self.d, ".claude/worktrees/w1/.design/bug-c/BUGFIX.md", "mistake:only-once\n")
+        write(self.d, ".design/bug-d/BUGFIX.md", "mistake:only-once\n")
+        self.assertNotIn("only-once\t2", run("list", self.d).stdout)
+        os.symlink(os.path.join(self.d, "nowhere"), os.path.join(self.d, ".design", "BUGFIX.md"))
+        r = run("check", self.d)
+        self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+
     def test_usage_errors(self):
         self.assertEqual(run("check").returncode, 2)
         self.assertEqual(run("nope", self.d).returncode, 2)

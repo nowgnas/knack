@@ -20,9 +20,9 @@ description: 같은 실수가 두 번째로 나면 지시문을 더 쓰지 않�
 ## 3. 강제 수단 고르기 (위가 강하다)
 | 수단 | Spring Boot | .NET |
 |---|---|---|
-| 타입·컴파일 | 값 객체, sealed 계층, `@NonNull` + ErrorProne/NullAway | nullable 참조형 + `TreatWarningsAsErrors`, 값 객체 |
+| 타입·컴파일 | 값 객체, sealed 계층, `@NullMarked`·`@Nullable`(JSpecify) + ErrorProne/NullAway | nullable 참조형 + `TreatWarningsAsErrors`, 값 객체 |
 | 아키텍처 테스트 | ArchUnit | NetArchTest·ArchUnitNET |
-| 린트·분석기 | Checkstyle·PMD·ErrorProne 규칙 | Roslyn 분석기, `.editorconfig` 심각도 `error` |
+| 린트·분석기 | Checkstyle·PMD·ErrorProne 규칙 | Roslyn 분석기, `.editorconfig` 심각도 `error`(IDE 규칙은 `EnforceCodeStyleInBuild`) |
 | 테스트 | 실패 사례를 고정한 단위·통합 테스트 | 같음 |
 | 스크립트·CI·훅 | 빌드 단계, pre-commit, knack 훅 | 같음 |
 - 판단이 필요해 구조로 못 막으면 지시문을 눈에 띄는 자리(해당 스킬·룰의 맨 위)로 옮기고 실패 예시를 붙인다. 이 경우 표에 "강제 불가 — 사유"로 적는다.
