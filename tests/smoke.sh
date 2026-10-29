@@ -32,6 +32,7 @@ TOML_NOTE="${TOMLPY:+tomllib}"; TOML_NOTE="${TOML_NOTE:-tomllib 없음 — 문�
 
 echo "▶ 구조"
 check "모델 설치·doctor 회귀 테스트" 'python3 "$KNACK_DIR/tests/test_model_sync.py"'
+check "guard-prod-ops 훅 회귀 테스트 (Claude·Codex 형식, fail-closed)" 'python3 "$KNACK_DIR/tests/test_guard_prod.py" 2>/dev/null'
 for f in "$KNACK_DIR"/skills/*/SKILL.md; do
   d="$(dirname "$f")"; s="$(basename "$d")"
   check "$s: frontmatter name 일치" '[ "$(sed -n "s/^name: *//p" "$f" | head -1)" = "$s" ]'
@@ -116,14 +117,21 @@ check "CLAUDE.md: 작업 유형별 모델 색인" 'contains "$HOME/.claude/CLAUD
 check "Codex AGENTS.md: 기존 내용 보존 + 룰 본문" 'contains "$CODEX_HOME/AGENTS.md" "# existing codex rules" && contains "$CODEX_HOME/AGENTS.md" "# 작업 원칙" && contains "$CODEX_HOME/AGENTS.md" "# 하네스 관리"'
 check "Codex AGENTS.md: frontmatter·on-demand 본문 제외" '! contains "$CODEX_HOME/AGENTS.md" "load: always" && ! contains "$CODEX_HOME/AGENTS.md" "# Git 작업"'
 check "Codex AGENTS.md: 역할 위임 색인 + 상위 모델 권장" 'contains "$CODEX_HOME/AGENTS.md" "\`git-ops\` 역할로 위임 (spawn_agent) · gpt-5.6-sol/medium" && contains "$CODEX_HOME/AGENTS.md" "knack run <작업>"'
-check "Claude 훅: 기존 훅·모델 보존 + guard 추가" 'python3 -c "
+check "Claude 훅: 기존 훅·모델 보존 + guard·guard-prod-ops 추가" 'python3 -c "
 import json; d=json.load(open(\"$HOME/.claude/settings.json\"))
 assert d[\"model\"]==\"opus[1m]\" and d[\"hooks\"][\"PermissionRequest\"][0][\"hooks\"][0][\"type\"]==\"http\"
-g=d[\"hooks\"][\"PreToolUse\"][-1]; assert g[\"matcher\"]==\"Write|Edit|MultiEdit|Bash\" and \"--knack-hook guard-agent-config\" in g[\"hooks\"][0][\"command\"]"'
-check "Codex 훅: 기존 훅 보존 + guard 추가 (matcher 없음)" 'python3 -c "
+g={h[\"command\"].split()[-1]: grp for grp in d[\"hooks\"][\"PreToolUse\"] for h in grp[\"hooks\"] if \"--knack-hook\" in h[\"command\"]}
+assert g[\"guard-agent-config\"][\"matcher\"]==\"Write|Edit|MultiEdit|Bash\" and g[\"guard-prod-ops\"][\"matcher\"]==\"Bash\", g"'
+check "Codex 훅: 기존 훅 보존 + guard·guard-prod-ops 추가 (matcher 없음)" 'python3 -c "
 import json; d=json.load(open(\"$CODEX_HOME/hooks.json\"))
 assert d[\"hooks\"][\"SessionStart\"][0][\"hooks\"][0][\"command\"]==\"echo hi\"
-g=d[\"hooks\"][\"PreToolUse\"][-1]; assert \"matcher\" not in g and \"--knack-hook guard-agent-config\" in g[\"hooks\"][0][\"command\"]"'
+g={h[\"command\"].split()[-1]: grp for grp in d[\"hooks\"][\"PreToolUse\"] for h in grp[\"hooks\"] if \"--knack-hook\" in h[\"command\"]}
+assert set(g)>={\"guard-agent-config\",\"guard-prod-ops\"} and all(\"matcher\" not in v for v in g.values()), g"'
+
+check "설치된 guard-prod-ops 명령: 운영 마이그레이션 차단 · 로컬 대상 통과" '
+  c="$(python3 -c "import json;d=json.load(open(\"$CODEX_HOME/hooks.json\"));print(next(h[\"command\"] for g in d[\"hooks\"][\"PreToolUse\"] for h in g[\"hooks\"] if \"guard-prod-ops\" in h[\"command\"]))")" &&
+  printf "%s" "{\"tool_name\":\"shell\",\"tool_input\":{\"command\":[\"bash\",\"-lc\",\"flyway migrate\"]}}" | eval "$c" | grep -q "\"deny\"" &&
+  [ -z "$(printf "%s" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"flyway -url=jdbc:postgresql://localhost/app migrate\"}}" | eval "$c")" ]'
 
 echo "▶ 재설치 (멱등성)"
 snap() { cat "$HOME/.claude/CLAUDE.md" "$CODEX_HOME/AGENTS.md" "$HOME/.claude/settings.json" "$CODEX_HOME/hooks.json" "$CODEX_HOME/config.toml" "$HOME"/.claude/agents/*.md "$ROLES"/*.toml | cksum; }
@@ -219,7 +227,7 @@ printf -- '---\nname: docx\ndescription: app skill\n---\n' > "$DS/skills-plugin/
 check "list: 스킬 설치 상태 (copilot 미사용은 -)" 'contains "$TMP/list.txt" "[✓ ✓ -] bug-fix"'
 check "list: 서브에이전트 (claude·codex)" 'grep -q "\[✓ ✓ -\] git-ops" "$TMP/list.txt"'
 check "list: 룰 on-demand" 'grep -q "\[- - -\] git .*(on-demand)" "$TMP/list.txt"'
-check "list: 훅 설치 상태" 'grep -q "\[✓ ✓ -\] guard-agent-config" "$TMP/list.txt"'
+check "list: 훅 설치 상태" 'grep -q "\[✓ ✓ -\] guard-agent-config" "$TMP/list.txt" && grep -q "\[✓ ✓ -\] guard-prod-ops" "$TMP/list.txt"'
 "$H" list --all > "$TMP/list-all.txt"
 check "list --all: 외부 스킬·플러그인 스킬·외부 서브에이전트" 'contains "$TMP/list-all.txt" "my-ext" && contains "$TMP/list-all.txt" "demo:foo" && contains "$TMP/list-all.txt" "my-agent.md"'
 check "list --all: 외부 훅" 'contains "$TMP/list-all.txt" "PermissionRequest" && contains "$TMP/list-all.txt" "echo hi"'
