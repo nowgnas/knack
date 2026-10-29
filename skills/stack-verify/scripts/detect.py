@@ -31,16 +31,27 @@ def strip_comments(text, xml=False):
     return re.sub(r"(?m)(^|[^:])//[^\n]*", r"\1", text)
 
 
-# Gradle: java 계열 플러그인이 적용돼야 testClasses·test 태스크가 생긴다
+# Gradle: java 계열 플러그인이 적용돼야 testClasses·test 태스크가 생긴다.
+# Spring Boot 플러그인은 java 플러그인에 반응할 뿐 스스로 이 태스크를 만들지 않으므로 근거가 아니다.
 JVM_PLUGIN = re.compile(
-    r"""id\s*\(?\s*["'](java|java-library|application|war|org\.springframework\.boot|org\.jetbrains\.kotlin\.[\w.-]+)["']"""
-    r"""|apply\s*\(?\s*plugin\s*[:=]\s*["'](java|java-library|application|war|org\.springframework\.boot|kotlin)["']"""
+    r"""id\s*\(?\s*["'](java|java-library|application|war|org\.jetbrains\.kotlin\.jvm)["']"""
+    r"""|apply\s*\(?\s*plugin\s*[:=]\s*["'](java|java-library|application|war|kotlin|org\.jetbrains\.kotlin\.jvm)["']"""
     r"""|kotlin\s*\(\s*["']jvm["']\s*\)|`java(-library)?`|(?m:^\s*(java|`java-library`|application)\s*$)|\{\s*java\s*\}"""
-    r"""|alias\s*\(\s*libs\.plugins\.(spring[\w.]*boot|kotlin[\w.]*)\s*\)""")
+    r"""|alias\s*\(\s*libs\.plugins\.kotlin[\w.]*jvm\s*\)""")
+
+
+def plugin_re(plugin_id, alias, block):
+    """플러그인 '적용'만 근거로 본다: plugins{} 의 id·alias, apply plugin, 설정 블록."""
+    q = re.escape(plugin_id)
+    return re.compile(rf"""id\s*\(?\s*["']{q}["']|apply\s*\(?\s*plugin\s*[:=]\s*["']{q}["']"""
+                      rf"""|alias\s*\(\s*libs\.plugins\.{alias}\s*\)|(?m:^\s*{block}\s*\{{)""")
+
+
 GRADLE_PLUGIN = {
-    "spotless": re.compile(r"com\.diffplug\.spotless|libs\.plugins\.spotless|\bspotless\s*\{"),
-    "ktlint": re.compile(r"org\.jlleitschuh\.gradle\.ktlint|libs\.plugins\.ktlint|\bktlint\s*\{"),
-    "checkstyle": re.compile(r"""id\s*\(?\s*["']checkstyle["']|plugin\s*[:=]\s*["']checkstyle["']|(?m:^\s*checkstyle\s*$)|\bcheckstyle\s*\{"""),
+    "spotless": plugin_re("com.diffplug.spotless", "spotless", "spotless"),
+    "ktlint": plugin_re("org.jlleitschuh.gradle.ktlint", r"ktlint[\w.]*", "ktlint"),
+    "checkstyle": re.compile(r"""id\s*\(?\s*["']checkstyle["']|plugin\s*[:=]\s*["']checkstyle["']"""
+                             r"""|(?m:^\s*checkstyle\s*$)|(?m:^\s*checkstyle\s*\{)"""),
 }
 EF_PROVIDERS = {
     "npgsql.entityframeworkcore.postgresql": "postgresql",
@@ -90,7 +101,7 @@ def migrations(root, rel, text):
 
 
 def gradle_files(base):
-    """하위 모듈 빌드 파일(2단계)과 buildSrc·build-logic 의 컨벤션 플러그인."""
+    """하위 모듈 빌드 파일(루트 아래 3단계 폴더까지)과 buildSrc·build-logic 의 컨벤션 플러그인."""
     for b, dirs, fs in os.walk(base):
         r = os.path.relpath(b, base)
         dirs[:] = [d for d in dirs if not d.startswith(".") and d not in SKIP_DIRS]
@@ -106,7 +117,9 @@ def gradle_files(base):
 def gradle_unit(root, rel, files):
     base = os.path.join(root, rel)
     ev = [f for f in files if re.fullmatch(r"(build|settings)\.gradle(\.kts)?|gradlew", f)]
-    text = strip_comments("".join(read(p) for p in gradle_files(base)))
+    text = "\n".join(strip_comments(read(p)) for p in gradle_files(base))
+    # `id 'java' apply false` 처럼 선언만 하고 적용하지 않은 줄은 근거에서 뺀다
+    text = re.sub(r"(?m)^.*\bapply\s*\(?\s*false\b.*$", "", text)
     w = "./gradlew" if "gradlew" in files else None
     g = w or "gradle"
     jvm = bool(JVM_PLUGIN.search(text))
@@ -119,9 +132,11 @@ def gradle_unit(root, rel, files):
     tool, mev, tc = migrations(root, rel, text)
     settings = strip_comments("".join(read(os.path.join(base, f)) for f in ("settings.gradle", "settings.gradle.kts")))
     modules = sorted({m if m.startswith(":") else ":" + m
-                      for inc in re.findall(r"\binclude\b\s*\(?([^\n)]*)", settings)
+                      for inc in re.findall(r"""\binclude\b\s*\(?((?:\s*["'][^"']+["']\s*,?)+)""", settings)
                       for m in re.findall(r"""["']([^"']+)["']""", inc)})
-    single = f"{g} test --tests '<패키지.클래스명>'" if not modules else f"{g} <모듈>:test --tests '<패키지.클래스명>'"
+    # include 가 하나라도 있으면(반복문 등으로 못 읽은 경우 포함) 루트 필터 명령을 내지 않는다
+    multi = bool(re.search(r"\binclude\b", settings))
+    single = f"{g} <모듈>:test --tests '<패키지.클래스명>'" if multi else f"{g} test --tests '<패키지.클래스명>'"
     unit = {
         "kind": "gradle", "dir": rel, "evidence": ev, "wrapper": w,
         "commands": {
@@ -134,7 +149,9 @@ def gradle_unit(root, rel, files):
         "modules": modules,
     }
     if not jvm:
-        unit["note"] = f"java·kotlin·spring boot 플러그인 적용 근거를 못 찾았습니다. `{g} tasks --all`로 태스크를 확인하세요."
+        unit["note"] = f"java·kotlin(jvm) 플러그인 적용 근거를 못 찾았습니다. `{g} tasks --all`로 태스크를 확인하세요."
+        if re.search(r"org\.jetbrains\.kotlin\.(android|multiplatform)|kotlin\s*\(\s*[\"'](android|multiplatform)", text):
+            unit["note"] += " Android·KMP 는 test·testClasses 대신 변형별 태스크(예: jvmTest, testDebugUnitTest)를 씁니다."
     return unit
 
 

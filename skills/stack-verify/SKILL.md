@@ -20,12 +20,13 @@ JSON(`schema_version` 1)을 읽는다.
 | `modules` | Gradle `settings`의 `include` 모듈. 있으면 `single_test`의 `<모듈>`을 테스트 클래스가 있는 모듈(예: `:api`)로 바꾼다. 루트에서 `test --tests`를 돌리면 테스트 없는 모듈이 "No tests found"로 실패한다 |
 | `test_projects` | .NET 테스트 프로젝트. 비어 있으면 `test`가 null |
 | `commands` | `compile`·`test`·`single_test`·`format`·`lint`·`full`. 근거가 없으면 `null` |
-| `migration` | `tool`(flyway·liquibase·ef-core), 근거, `testcontainers_dependency`(의존성만 본 것), .NET은 `ef_providers`·`tests_call`·`dotnet_ef_local_tool`(true면 `dotnet tool restore` 후 `dotnet ef`)(테스트 코드의 `Migrate`·`EnsureCreated` 호출) |
+| `migration` | `tool`(flyway·liquibase·ef-core), 근거, `testcontainers_dependency`(의존성만 본 것), .NET은 `ef_providers`(비어 있으면 공급자가 참조 프로젝트에 있을 수 있다 — 확인 필요), `tests_call`(테스트 코드의 `Migrate`·`EnsureCreated` 호출), `dotnet_ef_local_tool`(true면 `dotnet tool restore` 후 `dotnet ef`) |
 | `note` | 단위별 주의. 예: Gradle에 java 계열 플러그인 근거가 없어 `compile`·`test`를 비움 |
 | `ci_files` | CI 설정. CI가 다른 명령(프로파일, 플래그)을 쓰면 CI 쪽을 따른다 |
 
 - 단위가 여럿이면 바꾼 파일이 속한 `run_dir`만 돌린다.
 - `null`인 명령은 만들어 내지 않는다. README·CI에서 찾고, 없으면 "검증 명령 없음"으로 보고한다.
+- 경로는 POSIX 셸 기준 작은따옴표로 감싼다. Windows cmd에서는 큰따옴표로 바꾼다.
 - 래퍼(`./gradlew`, `./mvnw`)가 있으면 늘 래퍼를 쓴다. 전역 `gradle`·`mvn`은 버전이 다를 수 있다.
 
 ## 2. 돌리는 순서 (빠른 실패부터)

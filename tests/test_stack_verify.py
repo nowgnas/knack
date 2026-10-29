@@ -35,7 +35,7 @@ class StackDetect(unittest.TestCase):
         write(self.d, "gradlew")
         write(self.d, "settings.gradle.kts", 'include("api")')
         write(self.d, "build.gradle.kts", 'plugins { id("com.diffplug.spotless") }')
-        write(self.d, "api/build.gradle.kts", 'plugins { id("org.springframework.boot") }\n'
+        write(self.d, "api/build.gradle.kts", 'plugins {\n    java\n    id("org.springframework.boot")\n}\n'
                                               'dependencies { implementation("org.flywaydb:flyway-core")\n'
                                               ' testImplementation("org.testcontainers:postgresql") }')
         write(self.d, "api/src/main/resources/db/migration/V1__init.sql", "create table t(id int);")
@@ -88,6 +88,33 @@ class StackDetect(unittest.TestCase):
         self.assertIsNone(u["migration"]["tool"])
         self.assertIn("note", u)
 
+    def test_gradle_declared_but_not_applied_is_not_evidence(self):
+        write(self.d, "build.gradle", "plugins {\n  id 'org.springframework.boot' version '3.3.0'\n"
+                                      "  id 'java' apply false\n  id 'com.diffplug.spotless' version '6' apply false\n}\n"
+                                      "def hint = 'com.diffplug.spotless'")
+        c = detect(self.d)["units"][0]["commands"]
+        self.assertEqual((c["test"], c["format"]), (None, None), "Boot 단독·apply false·문자열은 근거가 아니다")
+
+    def test_gradle_kotlin_android_is_not_jvm_evidence(self):
+        write(self.d, "build.gradle.kts", 'plugins { id("org.jetbrains.kotlin.android")\n'
+                                          ' id("org.jetbrains.kotlin.plugin.spring") }')
+        u, = detect(self.d)["units"]
+        self.assertIsNone(u["commands"]["test"])
+        self.assertIn("Android", u["note"])
+
+    def test_gradle_comment_does_not_eat_next_file(self):
+        write(self.d, "settings.gradle", "include 'a'")
+        write(self.d, "build.gradle", "// root, no newline at end")
+        write(self.d, "a/build.gradle", "plugins { id 'java' }")
+        self.assertEqual(detect(self.d)["units"][0]["commands"]["test"], "gradle test")
+
+    def test_gradle_multiline_include(self):
+        write(self.d, "settings.gradle.kts", 'include(\n    "api",\n    "empty"\n)')
+        write(self.d, "build.gradle.kts", "plugins { java }")
+        u, = detect(self.d)["units"]
+        self.assertEqual(u["modules"], [":api", ":empty"])
+        self.assertIn("<모듈>:test", u["commands"]["single_test"])
+
     def test_gradle_convention_plugin_in_buildsrc(self):
         write(self.d, "settings.gradle.kts", 'include("app")')
         write(self.d, "app/build.gradle.kts", 'plugins { id("my.java-conventions") }')
@@ -135,9 +162,12 @@ class StackDetect(unittest.TestCase):
         write(self.d, "backend/pom.xml", "<project/>")
         write(self.d, "gateway/Gateway.csproj", "<Project/>")
         write(self.d, "build/pom.xml", "<project/>")  # 빌드 산출물 폴더는 건너뛴다(JVM 루트 밖)
+        write(self.d, "backend/target/x/pom.xml", "<project><artifactId>flyway-core</artifactId></project>")
         write(self.d, "gateway/obj/Gen.csproj", "<Project/>")
         kinds = sorted((u["kind"], u["run_dir"]) for u in detect(self.d)["units"])
         self.assertEqual(kinds, [("dotnet", "gateway"), ("maven", "backend")])
+        mvn = [u for u in detect(self.d)["units"] if u["kind"] == "maven"][0]
+        self.assertIsNone(mvn["migration"]["tool"], "Maven 단위 안의 target/ 은 읽지 않는다")
 
     def test_checkout_path_with_skip_dir_name(self):
         repo = os.path.join(self.d, "build", "packages", "repo")
