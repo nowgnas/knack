@@ -36,7 +36,7 @@ def strip_comments(text, xml=False):
 JVM_PLUGIN = re.compile(
     r"""id\s*\(?\s*["'](java|java-library|application|war|org\.jetbrains\.kotlin\.jvm)["']"""
     r"""|apply\s*\(?\s*plugin\s*[:=]\s*["'](java|java-library|application|war|kotlin|org\.jetbrains\.kotlin\.jvm)["']"""
-    r"""|kotlin\s*\(\s*["']jvm["']\s*\)|`java(-library)?`|(?m:^\s*(java|`java-library`|application)\s*$)|\{\s*java\s*\}"""
+    r"""|kotlin\s*\(\s*["']jvm["']\s*\)|`java(-library)?`|(?m:^\s*(java|`java-library`|application)\s*$)|[{;]\s*java\s*[;}]"""
     r"""|alias\s*\(\s*libs\.plugins\.kotlin[\w.]*jvm\s*\)""")
 
 
