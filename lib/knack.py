@@ -809,10 +809,7 @@ def cmd_add(a):
         ext = external_skills().get(name)
         if ext:
             print(f"  ⚠ 외부에 같은 이름: {', '.join(ext)} → 설치 시 SKIP. 교체: knack install --force")
-        if a.install:
-            subprocess.run([str(KNACK / "install.sh"), "--global"], check=False)
-        else:
-            print("다음: knack install --dry-run → knack install → 하네스 레포 커밋")
+        print("다음: knack install --dry-run → knack install → 하네스 레포 커밋")
     finally:
         if tmp:
             shutil.rmtree(tmp, ignore_errors=True)
@@ -1606,7 +1603,6 @@ def main():
     s.add_argument("--name")
     s.add_argument("--subdir")
     s.add_argument("--replace", action="store_true")
-    s.add_argument("--install", action="store_true")
 
     s = sub.add_parser("adopt", help="에이전트 폴더의 외부 스킬을 하네스로 이동")
     s.add_argument("kind", choices=("skill",))

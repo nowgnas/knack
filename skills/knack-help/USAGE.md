@@ -185,7 +185,7 @@ knack 은 백엔드 개발용 개인 에이전트 하네스입니다. 에이전�
 | `knack show <skill\|rule\|agent\|hook\|ref\|template\|usage> <이름> [--toc\|--section N\|--path]` | 필요한 부분만 조회 (예: `knack show ref db-migration --section 2`) |
 | `knack search <키워드> [-l] [-E]` | 하네스 문서 검색 (`path:line`) |
 | `knack doctor` | 구조·중복(같은 이름 + `overlaps:`로 선언한 기능 중복)·설치 상태·환경 점검 |
-| `knack add skill <경로\|git URL> [--subdir P] [--name N] [--install]` | 외부 스킬을 하네스에 복사 (출처는 `.knack-source`에 기록) |
+| `knack add skill <경로\|git URL> [--subdir P] [--name N]` | 외부 스킬을 하네스에 복사 (출처는 `.knack-source`에 기록) |
 | `knack new <skill\|rule\|hook> <이름> [--always]` | 뼈대 생성 (룰은 기본 on-demand, 훅은 기본 꺼짐) |
 | `knack adopt skill <이름>` | 에이전트 폴더의 외부 스킬을 하네스로 이동 |
 | `knack hook <enable\|disable> <이름>` | 훅 켜기·끄기 (적용은 `knack install`) |
