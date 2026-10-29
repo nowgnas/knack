@@ -1,14 +1,37 @@
 #!/usr/bin/env python3
 """verification-skill link_skill.py 회귀 테스트: 상대 링크, 복사 + sha256 표류 감지, 덮어쓰기 거부."""
+import importlib.util
+import io
 import os
 import subprocess
 import sys
 import tempfile
 import unittest
+import unittest.mock
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRIPT = os.path.join(ROOT, "skills", "verification-skill", "scripts", "link_skill.py")
 NAME = "verify-order-api"
+
+
+def can_symlink():
+    with tempfile.TemporaryDirectory() as d:
+        try:
+            os.symlink(d, os.path.join(d, "l"), target_is_directory=True)
+            return True
+        except (OSError, NotImplementedError):
+            return False
+
+
+SYMLINK = can_symlink()
+needs_symlink = unittest.skipUnless(SYMLINK, "이 환경에서 심볼릭 링크를 만들 수 없다")
+
+
+def load_module():
+    spec = importlib.util.spec_from_file_location("link_skill", SCRIPT)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
 
 
 def run(*args):
@@ -34,6 +57,7 @@ class LinkSkill(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
+    @needs_symlink
     def test_relative_symlink_and_check(self):
         r = run("link", self.d, NAME)
         self.assertEqual(r.returncode, 0, r.stdout)
@@ -53,12 +77,14 @@ class LinkSkill(unittest.TestCase):
         self.assertEqual(run("link", self.d, NAME, "--copy").returncode, 0)
         self.assertEqual(run("check", self.d, NAME).returncode, 0)
 
+    @needs_symlink
     def test_broken_or_missing(self):
         self.assertEqual(run("check", self.d, NAME).returncode, 1)
         os.makedirs(os.path.dirname(self.dst))
         os.symlink("../../elsewhere", self.dst)
         self.assertEqual(run("check", self.d, NAME).returncode, 1)
-        self.assertEqual(run("link", self.d, NAME).returncode, 0)
+        self.assertEqual(run("link", self.d, NAME).returncode, 2)  # 남의 링크는 --force 없이 교체하지 않는다
+        self.assertEqual(run("link", self.d, NAME, "--force").returncode, 0)
         self.assertEqual(run("check", self.d, NAME).returncode, 0)
 
     def test_refuses_to_overwrite_foreign_dir(self):
@@ -68,9 +94,54 @@ class LinkSkill(unittest.TestCase):
         with open(os.path.join(self.dst, "SKILL.md"), encoding="utf-8") as f:
             self.assertEqual(f.read(), "user's own\n")
 
-    def test_bad_name_and_missing_source(self):
-        self.assertEqual(run("link", self.d, "../x").returncode, 2)
+    def test_bad_name_flag_and_missing_source(self):
+        for bad in ("../x", "C:verify-x", "/abs", "order-api", "verify-a/b"):
+            self.assertEqual(run("link", self.d, bad).returncode, 2, bad)
+        self.assertEqual(run("link", self.d, NAME, "--cpy").returncode, 2)
+        self.assertFalse(os.path.lexists(self.dst))
         self.assertEqual(run("link", self.d, "verify-none").returncode, 1)
+
+    def test_edited_copy_is_not_silently_replaced(self):
+        self.assertEqual(run("link", self.d, NAME, "--copy").returncode, 0)
+        write(self.dst, "SKILL.md", "직접 고침\n")
+        r = run("check", self.d, NAME)
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("직접 고침", r.stdout)
+        self.assertEqual(run("link", self.d, NAME, "--copy").returncode, 2)
+        with open(os.path.join(self.dst, "SKILL.md"), encoding="utf-8") as f:
+            self.assertEqual(f.read(), "직접 고침\n")
+        self.assertEqual(run("link", self.d, NAME, "--copy", "--force").returncode, 0)
+        self.assertEqual(run("check", self.d, NAME).returncode, 0)
+
+    def test_symlink_failure_falls_back_to_copy(self):
+        mod = load_module()
+        def fail(*a, **k):
+            raise OSError("no symlink privilege")
+        orig, mod.os.symlink = mod.os.symlink, fail
+        try:
+            with unittest.mock.patch("sys.stdout", new=io.StringIO()):
+                self.assertEqual(mod.link(self.d, NAME), 0)
+        finally:
+            mod.os.symlink = orig
+        self.assertFalse(os.path.islink(self.dst))
+        self.assertTrue(os.path.isfile(os.path.join(self.dst, ".knack-copy.sha256")))
+        self.assertEqual(run("check", self.d, NAME).returncode, 0)
+
+    def test_windows_placeholder_file_is_replaced(self):
+        write(os.path.dirname(self.dst), NAME, "../../.agents/skills/" + NAME + "\n")
+        r = run("check", self.d, NAME)
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("core.symlinks", r.stdout)
+        self.assertEqual(run("link", self.d, NAME, "--copy").returncode, 0)
+        self.assertEqual(run("check", self.d, NAME).returncode, 0)
+
+    @needs_symlink
+    def test_refuses_symlinked_parent(self):
+        outside = tempfile.mkdtemp()
+        self.addCleanup(lambda: __import__("shutil").rmtree(outside))
+        os.symlink(outside, os.path.join(self.d, ".claude"), target_is_directory=True)
+        self.assertEqual(run("link", self.d, NAME, "--copy").returncode, 2)
+        self.assertEqual(os.listdir(outside), [])
 
 
 class Templates(unittest.TestCase):

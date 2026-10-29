@@ -5,12 +5,15 @@ description: <앱>(<Spring Boot|ASP.NET Core> <표면: REST API 등>)를 로컬�
 
 # Verify <앱>
 
-상태: **미증명** (EVIDENCE.md에 실제 실행 기록이 생기면 "증명됨 · <날짜> · <commit>"으로 바꾼다)
+상태: **미증명** (EVIDENCE.md의 한 실행에서 띄우기·점검·정리와 기능 하나 이상이 통과하면 "증명됨 · <날짜> · <commit>"으로 바꾼다)
 기능 목록: [features/README.md](features/README.md) · 실행 기록: [EVIDENCE.md](EVIDENCE.md)
 
 ## 띄우기
-- 의존 자원: `<docker compose -f compose.yaml up -d db>` — 준비 신호: `<pg_isready -h localhost -p 5432>`
-- 앱: `<./gradlew bootRun --args='--spring.profiles.active=local' | dotnet run --project src/Api --environment Development>`
+- 기동 전: 포트가 비었는지(`<lsof -iTCP:8080 -sTCP:LISTEN>`), 고른 프로파일의 datasource·브로커가 localhost/컨테이너인지 확인한다
+- 의존 자원: `<docker compose -p verify-<앱> -f compose.yaml up -d db>`(전용 프로젝트 이름) — 준비 신호: `<pg_isready -h localhost -p 5432>`
+  - Spring Boot docker-compose 지원(3.1+)을 쓰는 레포면 `<spring.docker.compose.enabled=false>`로 끄고 위 명령으로 띄운다
+- 앱: `<./gradlew bootRun --args='--spring.profiles.active=local' | dotnet run --project src/Api --launch-profile <로컬 프로필>>`
+  - `bootRun`·`dotnet run`은 앱을 자식 프로세스로 띄운다. 준비 신호 뒤 `<lsof -tiTCP:8080 -sTCP:LISTEN>`으로 리스너 PID를 기록한다(`$!`는 런처 PID)
   - 포트: `<8080>` · 필요한 환경 변수: `<없음 | 이름=로컬 값>` · 시드: `<명령 또는 자동>`
 - 준비 완료: `<curl -fsS localhost:8080/actuator/health>`가 `UP`이고, `<시드 확인 명령>`이 기대 값을 낸다
 - 운영·공유 자원(운영 프로파일, 원격 DB)은 쓰지 않는다
@@ -18,8 +21,8 @@ description: <앱>(<Spring Boot|ASP.NET Core> <표면: REST API 등>)를 로컬�
 ## 점검 (doctor, 읽기 전용)
 조작 전에, 그리고 조작이 실패한 뒤마다 돌린다.
 - `<curl -fsS localhost:8080/actuator/health>` → UP
-- 포트를 이번에 띄운 프로세스가 쓰는지: `<lsof -iTCP:8080 -sTCP:LISTEN>`의 PID가 기록한 PID와 같다
-- 빌드가 지금 커밋인지: `<curl -fsS localhost:8080/actuator/info>` 또는 기동 로그의 버전
+- 포트를 이번에 띄운 프로세스가 쓰는지: `<lsof -tiTCP:8080 -sTCP:LISTEN>`이 기록한 리스너 PID와 같다
+- 빌드가 지금 커밋인지: 기동 로그의 버전 (`/actuator/info`는 노출 설정과 git 정보 플러그인이 있을 때만)
 
 ## 조작
 - 기능별 절차는 `features/<기능>.md`. 이 레포의 실제 엔드포인트·본문을 쓴다(예시가 아니라)
@@ -33,7 +36,7 @@ description: <앱>(<Spring Boot|ASP.NET Core> <표면: REST API 등>)를 로컬�
 - dry-run·테스트 모드를 쓰면 실제로 무엇을 건너뛰는지 관찰로 확인한다(이름을 믿지 않는다)
 
 ## 정리
-- 이번에 띄운 PID와 컨테이너만 멈춘다: `<kill <기록한 PID>>`, `<docker compose -f compose.yaml down>`. 프로세스 이름으로 죽이지 않는다
+- 이번에 띄운 PID와 컨테이너만 멈춘다: `<kill <리스너 PID> <런처 PID>>`, `<docker compose -p verify-<앱> -f compose.yaml down>`. 기동 전에 떠 있던 것과 프로세스 이름으로는 건드리지 않는다
 - 증거 폴더는 남긴다. 정리 뒤에 증거가 그 위치에 있는지 확인한다
 
 <!-- 출처: pstack (MIT, Lauren Tan, cursor/plugins@1ba91fc) · knack THIRD_PARTY_NOTICES.md -->
