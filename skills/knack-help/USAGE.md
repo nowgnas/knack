@@ -17,6 +17,7 @@ knack 은 백엔드 개발용 개인 에이전트 하네스입니다. 에이전�
 | 새 기능 | "주문 취소 API 추가해줘" (요구사항·정책 문서가 있으면 함께) | `feature-implementation` | 경량은 없음 · 표준은 `.design/<slug>/PLAN.md` |
 | 버그 | "이 버그 고쳐줘", "이 에러 고쳐줘" + 스택트레이스·로그 | `bug-fix` | 경량은 없음 · 그 밖에는 `.design/bug-<slug>/BUGFIX.md` |
 | 빌드·테스트 검증 | "검증 돌려줘", "빌드·테스트 확인해줘" | `stack-verify` | 대화 보고(명령별 결과) |
+| 실수 재발 방지 | "이 실수 다시 안 나게 해줘" | `mistake-proofing` | `docs/enforcement.md` |
 | 앱 동작 검증 스킬 | "검증 스킬 만들어줘", "verify 스킬 점검해줘" | `verification-skill` | `.agents/skills/verify-<앱>/`(+ `.claude/skills/` 링크), `EVIDENCE.md` |
 | 머지 전 리뷰 | "머지 전에 리뷰해줘" | `impl-review` | 대화 보고 · 고위험만 `.design/<slug>/REVIEW.md` |
 | 스킬·룰·훅 설치·관리 | "이 스킬 설치해줘", "훅 추가해줘", "하네스 업데이트해줘" | `knack-manage` | 하네스 레포 변경 |
@@ -69,6 +70,11 @@ knack 은 백엔드 개발용 개인 에이전트 하네스입니다. 에이전�
 - `scripts/detect.py`가 Gradle·Maven·.NET 빌드 단위와 명령(포맷·컴파일·단일 테스트·전체 테스트·마이그레이션 도구)을 JSON으로 낸다. 근거 없는 명령은 만들지 않는다
 - 순서: 포맷 → 컴파일 → 단일 테스트 → 영향 테스트 → 린트 → 마이그레이션(로컬·Testcontainers만) → 머지 직전 전체 빌드
 - 돌리지 못한 단계는 "안 함"과 이유를 보고한다
+
+### mistake-proofing — 같은 실수를 구조로 막기
+- `bug-fix` 기록의 `mistake:<slug>` 태그가 두 번 나오면 대상입니다. `scripts/mistakes.py list|check <레포>`로 판정합니다(상태 파일 없음).
+- 타입·아키텍처 테스트(ArchUnit, NetArchTest)·분석기·테스트·CI 순으로 강제 수단을 고르고, 실패가 있던 코드에서 실제로 실패하는지 증명합니다.
+- `docs/enforcement.md`에 태그·룰·강제 수단·실행 명령·과거 실패 증명을 적고, 같은 내용의 지시문은 사용자 확인 후 지웁니다.
 
 ### verification-skill — 레포 전용 동작 검증 스킬
 - 생성: 레포에서 띄우기·준비 신호·조작·관찰 방법을 찾아 `verify-<앱>` 스킬과 기능 목록(`features/`)을 쓰고, 한 번 처음부터 끝까지 돌려 `EVIDENCE.md`에 기록합니다. 기록이 없으면 "미증명"입니다.
