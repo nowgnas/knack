@@ -54,6 +54,7 @@ class Mistakes(unittest.TestCase):
             "| `mistake:missing-tx` | <한 문장 룰> | ArchUnit | cmd | 증명 |\n",
             "| `mistake:missing-tx` | 룰 | 강제 불가 | | |\n",              # 사유 없는 강제 불가
             "| `mistake:missing-tx` | 룰 | 강제 불가 — <사유> | | |\n",
+            "| `mistake:missing-tx` | 룰 | 강제 불가 — `<사유>` | | |\n",
             "| `mistake:missing-tx` | 룰 | CI | a | b | |\n",            # 이스케이프 안 된 | 로 열이 밀림
         ]
         for doc in cases:

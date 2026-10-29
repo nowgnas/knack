@@ -58,7 +58,7 @@ def row_state(cells):
     rule, means, cmd, proof = cells[1:5]
     if "강제 불가" in means:
         m = re.search(r"강제 불가\s*[—–-]+\s*(\S.*)", means)
-        if rule and not PLACEHOLDER.match(rule) and m and not PLACEHOLDER.match(m.group(1)):
+        if rule and not PLACEHOLDER.match(rule.strip("`")) and m and not PLACEHOLDER.match(m.group(1).strip("` ")):
             return "강제 불가"
         return "미완성(강제 불가 사유 없음)"
     for name, v in (("룰", rule), ("강제 수단", means), ("실행 명령", cmd), ("과거 실패 증명", proof)):
