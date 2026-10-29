@@ -10,7 +10,7 @@
   모델은 이름 하나 또는 후보 목록(`["gpt-6-astra", "gpt-6-sol"]`)으로 적고, 설치된 첫 모델이 쓰인다. PC 전용 값은 `~/.config/knack/models.local.json`에 두면 덮어쓴다(커밋되지 않음)
 - `hooks/<name>/hook.json` + 스크립트 — 훅. `targets`에 에이전트별 event/matcher
 - `lib/knack.py` — list/show/search/doctor/add/new/adopt/hook/model, 외부 항목 조회(Claude Code·데스크톱 앱 플러그인 포함), 훅·모델 설정 동기화
-- `lib/usage.py`, `lib/gate.py`, `lib/persona.py` — 세션 로그 토큰 집계, 완료 게이트 확인·재검증, 페르소나 (`knack usage`, `knack gate`, `knack persona`)
+- `lib/gate.py`, `lib/persona.py` — 완료 게이트 확인·재검증, 페르소나 (`knack gate`, `knack persona`)
 - `persona/` — 페르소나 템플릿. 실제 `core.md`·`detail/`은 개인 정보라 gitignore
 - `bin/knack` — CLI (글로벌 설치 시 `~/.local/bin/knack`)
 - `install.sh` — 설치/상태/제거. `tests/smoke.sh` — 스모크 테스트

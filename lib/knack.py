@@ -17,7 +17,6 @@ import tempfile
 from datetime import date
 from pathlib import Path
 
-import usage as U
 
 KNACK = Path(__file__).resolve().parent.parent
 HOME = Path.home()
@@ -1455,13 +1454,6 @@ def cmd_run(a):
     os.execvp(cmd[0], cmd)
 
 
-def usage_weights():
-    merged = {agent: dict(w) for agent, w in U.DEFAULT_WEIGHTS.items()}
-    for agent, w in ((load_models(safe=True) or {}).get("usage_weights") or {}).items():
-        merged.setdefault(agent, {}).update(w)
-    return merged
-
-
 def cmd_persona_block(_a):
     print(__import__("persona").render_block(), end="")
 
@@ -1703,17 +1695,6 @@ def main():
     s = sub.add_parser("models-index")
     s.add_argument("--agent", required=True, choices=AGENTS_SUPPORTED)
 
-    s = sub.add_parser("usage", help="세션 로그 기반 토큰 사용량")
-    s.add_argument("--agent", choices=("all", *AGENTS_SUPPORTED), default="all")
-    s.add_argument("--since", default="7d", help="7d, 12h, 2026-09-01")
-    g = s.add_mutually_exclusive_group()
-    g.add_argument("--cwd", help="이 경로 아래에서 실행된 세션만")
-    g.add_argument("--here", action="store_true", help="현재 디렉터리 아래 세션만")
-    s.add_argument("--session", help="세션 id (일부)")
-    s.add_argument("--by", choices=("session", "model", "day", "skill", "cwd"), default="session")
-    s.add_argument("--limit", type=int, default=20)
-    s.add_argument("--json", action="store_true")
-
     s = sub.add_parser("persona", help="사용자 페르소나 (지시 블록에 주입되는 사실)",
                        epilog="예:\n  knack persona init            # 템플릿 생성 후 채우기\n"
                               "  knack persona set stack 'Spring Boot 3.2; MySQL 8'\n"
@@ -1758,7 +1739,6 @@ def main():
     {"list": cmd_list, "show": cmd_show, "search": cmd_search, "doctor": cmd_doctor, "add": cmd_add,
      "adopt": cmd_adopt, "new": cmd_new, "hook": cmd_hook, "hooks-sync": cmd_hooks_sync,
      "model": cmd_model, "run": cmd_run, "models-sync": cmd_models_sync, "models-index": cmd_models_index,
-     "usage": lambda args: U.cmd_usage(args, usage_weights()),
      "persona": lambda args: __import__("persona").cmd_persona(args, sys.modules[__name__]),
      "gate": lambda args: __import__("gate").cmd_gate(args),
      "persona-block": lambda args: cmd_persona_block(args)}[a.cmd](a)

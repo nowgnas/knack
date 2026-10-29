@@ -36,20 +36,6 @@
       }
     }
   },
-  "usage_weights": {
-    "claude": {
-      "input": 1.0,
-      "cache_write": 1.25,
-      "cache_read": 0.1,
-      "output": 5.0
-    },
-    "codex": {
-      "input": 1.0,
-      "cache_write": 1.0,
-      "cache_read": 0.1,
-      "output": 8.0
-    }
-  },
   "main": {
     "claude": {
       "model": "opus[1m]"

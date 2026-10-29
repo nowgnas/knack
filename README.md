@@ -143,17 +143,11 @@ knack install --dry-run && knack install                                # 적용
 
 외부 스킬 제거는 가드 훅이 막습니다. 에이전트가 백업·삭제 명령을 안내하면 사용자가 실행합니다.
 
-## 측정
-
-```bash
-knack usage --since 7d --by skill                   # 스킬별 토큰 사용량 (Claude·Codex 세션 로그)
-```
-
 ## 알려진 한계
 
 - 조회 규율(문서를 `--section`으로 잘라 읽기)은 룰로만 안내합니다. 에이전트가 파일을 통째로 읽어도 막거나 알리지 않습니다. `impl-reviewer`처럼 체크리스트를 통째로 읽는 것이 맞는 경우가 있어 강제하지 않습니다.
 - `guard-agent-config`는 판단할 수 없는 입력을 통과시킵니다(fail-open). 명령을 `;`·`&&`·`||`·`|`로 나누고 `cd`를 따라가며 조각마다 판정합니다. 쓰기 여부는 명령 이름(`cp`·`rm`·`tee`·`sed -i` 등)과 리다이렉트 대상으로만 보고, 따옴표 안과 히어독 본문은 데이터로 취급합니다 — 보호 경로를 읽거나 문서에 적는 작업은 막지 않습니다. 대신 경로를 변수에 담거나 스크립트 파일 안에서 쓰는 경우는 보지 못합니다.
-- 하네스의 효과(토큰·통과율)는 측정하지 않았습니다. 하네스 안의 A/B 벤치(`knack bench`)는 측정 설계를 신뢰하기 어려워 제거했습니다. 세션 로그 기반 측정은 하네스 밖의 별도 도구에서 다룹니다.
+- 하네스의 효과(토큰·통과율)는 측정하지 않았습니다. 하네스 안의 A/B 벤치(`knack bench`)와 세션 로그 토큰 집계(`knack usage`)는 측정 결과를 신뢰하기 어려워 제거했습니다. 세션 로그 기반 측정은 하네스 밖의 별도 도구에서 다룹니다.
   - 산출물 축소(`DESIGN`+`SUMMARY`+`REVIEW` → `PLAN` 하나)의 효과도 재지 않았습니다.
   - `repo-onboarding`·`trace-flow`도 실제 레포에서 쓴 적이 없습니다(`.onboarding/`이 생긴 적 없음). 낯선 레포에서 `knack scan` → `repo-onboarding quick`을 한 번 돌려보고 10관점과 `ONBOARDING.md` 분량이 과한지 판단합니다.
   - `knack gate`는 스모크 테스트 밖에서, 즉 실제 작업에서 쓴 적이 없습니다. 고위험 작업에서 한 번 써 비용을 본 뒤에 완료 선언을 기계로 막을지 정합니다(비차단 알림 → 그래도 부족하면 차단형 Stop 훅).
@@ -172,7 +166,6 @@ hooks/<name>/           훅 정의(hook.json)와 스크립트
 persona/                페르소나 템플릿 (core.md·detail/ 은 gitignore)
 templates/              사용자별 설정 양식 (예: obsidian-vault.local.yml.example. 실제 값은 레포 밖에 둠)
 lib/knack.py            조회·관리·훅·모델 동기화 (python3 표준 라이브러리)
-lib/usage.py            세션 로그 토큰 집계 (knack usage)
 lib/gate.py             완료 게이트 확인·실행·재검증 (knack gate)
 lib/persona.py          페르소나 조회·수정 (knack persona)
 bin/knack               CLI

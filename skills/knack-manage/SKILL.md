@@ -20,7 +20,6 @@ description: 스킬·룰·훅·서브에이전트·모델 라우팅을 하네스
 | 키워드 | `knack search <키워드>` (`-l`: 파일별 개수만) |
 | 구조·작성 기준·설치 점검 | `knack doctor` |
 | 작업 유형별 모델 | `knack model` |
-| 토큰 사용량 | `knack usage [--by session\|model\|skill]` |
 
 ## 2. 요청별 절차
 | 요청 | 절차 |

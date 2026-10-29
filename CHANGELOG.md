@@ -15,6 +15,7 @@
 
 ### Removed
 - Remove `knack bench` (`lib/bench.py`, `bench/`): the fixed baseline → knack order, the HOME mirror that still links most of the real HOME, and the `git worktree remove --force` path built from task IDs made its numbers hard to trust and its cleanup risky. Existing `~/.knack-bench/` (or `~/.harness-bench/`) folders are left alone; delete them by hand if no longer needed.
+- Remove `knack usage` (`lib/usage.py`) and `usage_weights` in `models.json`: per-skill totals added each session's full tokens to every skill it used, `--since` selected whole sessions by file time, and session collection and token metrics move to a separate tool outside the harness.
 
 ### Changed
 - Make the new-rule smoke test validate the path returned by `knack new rule` instead of assuming a fixed rule number.

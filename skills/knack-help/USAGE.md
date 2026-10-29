@@ -137,6 +137,8 @@ knack 은 백엔드 개발용 개인 에이전트 하네스입니다. 에이전�
 - 바꾸기: `knack model set git haiku --agent claude`, `knack model set implement deep`, `knack model set main deep --agent codex` → `knack install`.
 - **PC마다 설치된 모델이 다를 때**: 모델을 후보 목록으로 적으면(`knack model set tier:deep "gpt-6-astra,gpt-6-sol" --agent codex --effort high`) 설치된 첫 모델을 씁니다. Codex는 `~/.codex/models_cache.json`으로 설치 여부를 확인하고, 지원하지 않는 effort는 떨굽니다. Claude 별칭(`opus`·`sonnet`·`haiku`)은 CLI가 풀어 주므로 확인 대상이 아닙니다.
 - 후보가 전부 없으면 `knack run`은 모델 플래그 없이 CLI 기본값으로 실행하고 알립니다. `knack doctor`도 경고합니다.
+- `knack run`의 에이전트는 PATH의 `claude`/`codex` 바이너리로 실행됩니다(셸 함수·별칭은 적용되지 않음). headroom 같은 래퍼를 거치려면 환경변수 `KNACK_CLAUDE_CMD`(예: `'headroom wrap claude --'`)를 씁니다.
+- 비대화 실행에는 CLI 로그인이 필요합니다. `401 authentication_error`가 나면 터미널에서 `claude`(또는 `codex`)를 실행해 로그인한 뒤 다시 시도합니다.
 - 이 PC에만 적용할 값은 `~/.config/knack/models.local.json`에 같은 구조로 적습니다. `models.json` 위에 덮어쓰며 커밋되지 않고, `knack model set`은 이 파일을 건드리지 않습니다.
 
 ## 사용자 페르소나
@@ -158,16 +160,6 @@ knack 은 백엔드 개발용 개인 에이전트 하네스입니다. 에이전�
 - `persona/core.md`·`persona/detail/` 은 개인 정보라 `.gitignore` 에 있습니다. 레포에는 템플릿만 커밋됩니다.
 - 에이전트에게 "내 정보 등록해줘"라고 하면 `persona` 스킬이 원자료를 결정 형태로 정리해 저장합니다.
 - 레포의 실제 코드가 페르소나와 어긋나면 에이전트는 레포를 믿고 사용자에게 알립니다. 낡은 페르소나는 없는 것보다 나쁩니다.
-
-## 토큰 사용량
-
-| 명령 | 용도 |
-|---|---|
-| `knack usage [--since 7d] [--agent claude\|codex] [--here] [--by session\|model\|day\|skill\|cwd]` | 두 에이전트의 세션 로그에서 토큰(입력·캐시 쓰기·캐시 읽기·출력)과 가중 환산값을 집계 |
-
-- weighted는 입력 토큰 기준 가중합입니다(캐시 읽기 0.1배, 출력 5~8배). 달러가 아닌 상대 비교용이며 `models.json`의 `usage_weights`에서 조정합니다.
-- `knack run`의 에이전트는 PATH의 `claude`/`codex` 바이너리로 실행됩니다(셸 함수·별칭은 적용되지 않음). headroom 같은 래퍼를 거치려면 환경변수 `KNACK_CLAUDE_CMD`(예: `'headroom wrap claude --'`)를 씁니다.
-- 비대화 실행에는 CLI 로그인이 필요합니다. `401 authentication_error`가 나면 터미널에서 `claude`(또는 `codex`)를 실행해 로그인한 뒤 다시 시도합니다.
 
 ## 항상 적용되는 공통 규칙
 - 주장에는 근거(`path:line`)를 붙이고, 확인하지 못한 것은 `(추정)`으로 표시합니다.
@@ -201,7 +193,6 @@ knack 은 백엔드 개발용 개인 에이전트 하네스입니다. 에이전�
 | `knack run <작업\|auto> [--agent claude\|codex] [--print] -- "<프롬프트>"` | 작업에 맞는 모델로 에이전트 실행 (`--dry-run`: 명령만 출력) |
 | `knack gate <status\|run\|reverify> <GATES.md>` | 완료 게이트: 상태만(실행 안 함) · 미충족만 실행 · 전부 재실행. 종료 0 ALL MET · 1 미충족·포기 · 2 형식 오류 |
 | `knack persona [show\|init\|set\|import\|check\|enable\|disable\|path]` | 사용자 페르소나 조회·수정 (`persona import -` 로 표준입력) |
-| `knack usage [--since 7d] [--by session\|model\|day\|skill\|cwd] [--json]` | 세션 로그 기반 토큰 사용량 집계 |
 | `knack install [--dry-run] [--project <path>] [--agents claude,codex] [--force]` | 설치 (기본값: 글로벌) |
 | `knack reinstall [옵션]` | 제거 후 다시 설치. 설치 상태가 꼬였을 때, 또는 다른 클론으로 옮길 때 |
 | `knack status` / `knack update` / `knack uninstall` | 상태 / git pull → 재설치 → doctor / 제거 |

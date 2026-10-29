@@ -563,43 +563,8 @@ UPSTREAM="$TMP/upstream.git"; git init -q --bare "$UPSTREAM" 2>/dev/null
 check "update: pull → 설치 → doctor 까지 이어진다" '"$CH" update --agents claude > "$TMP/update-full.txt" 2>&1; contains "$TMP/update-full.txt" "완료: 변경" && contains "$TMP/update-full.txt" "결과: 문제"'
 "$C/install.sh" --uninstall --agents claude,codex > /dev/null
 
-echo "▶ 사용량 집계 (knack usage)"
-HB="$KNACK_DIR/bin/knack"
-UP="$HOME/.claude/projects/-uproj"; mkdir -p "$UP/sess1/subagents" "$TMP/uproj"
-cat > "$UP/sess1.jsonl" <<EOF
-{"type":"user","timestamp":"2026-09-10T00:00:00Z","cwd":"$TMP/uproj","sessionId":"sess1","message":{"role":"user","content":"hi"}}
-{"type":"assistant","timestamp":"2026-09-10T00:00:01Z","cwd":"$TMP/uproj","sessionId":"sess1","message":{"id":"m1","model":"claude-opus-5","content":[{"type":"tool_use","name":"Skill","input":{"skill":"bug-fix"}}],"usage":{"input_tokens":10,"cache_creation_input_tokens":100,"cache_read_input_tokens":1000,"output_tokens":50}}}
-{"type":"assistant","timestamp":"2026-09-10T00:00:01Z","cwd":"$TMP/uproj","sessionId":"sess1","message":{"id":"m1","model":"claude-opus-5","content":[{"type":"text","text":"x"}],"usage":{"input_tokens":10,"cache_creation_input_tokens":100,"cache_read_input_tokens":1000,"output_tokens":50}}}
-{"type":"assistant","timestamp":"2026-09-10T00:00:05Z","cwd":"$TMP/uproj","sessionId":"sess1","message":{"id":"m2","model":"claude-opus-5","content":[{"type":"tool_use","name":"Agent","input":{"subagent_type":"git-ops"}}],"usage":{"input_tokens":5,"cache_creation_input_tokens":0,"cache_read_input_tokens":2000,"output_tokens":20}}}
-EOF
-cat > "$UP/sess1/subagents/agent-a.jsonl" <<EOF
-{"type":"assistant","timestamp":"2026-09-10T00:00:03Z","cwd":"$TMP/uproj","sessionId":"sess1","message":{"id":"s1","model":"claude-sonnet-5","content":[],"usage":{"input_tokens":1,"cache_creation_input_tokens":0,"cache_read_input_tokens":500,"output_tokens":5}}}
-EOF
-CR="$CODEX_HOME/sessions/2026/09/10"; mkdir -p "$CR"
-cat > "$CR/rollout-2026-09-10T01-00-00-th1.jsonl" <<EOF
-{"timestamp":"2026-09-10T01:00:00Z","type":"session_meta","payload":{"id":"th1","cwd":"$TMP/uproj","source":"cli"}}
-{"timestamp":"2026-09-10T01:00:01Z","type":"turn_context","payload":{"model":"gpt-5.6-sol","effort":"medium"}}
-{"timestamp":"2026-09-10T01:00:02Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":1000,"cached_input_tokens":800,"cache_write_input_tokens":0,"output_tokens":30,"reasoning_output_tokens":10}}}}
-{"timestamp":"2026-09-10T01:00:03Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":3000,"cached_input_tokens":2500,"cache_write_input_tokens":0,"output_tokens":90,"reasoning_output_tokens":20}}}}
-EOF
-"$HB" usage --since 2000-01-01 --json > "$TMP/usage.json"
-check "usage: Claude 중복 제거·스킬·서브에이전트 집계" 'python3 -c "
-import json; d=json.load(open(\"$TMP/usage.json\")); m=[s for s in d if s[\"agent\"]==\"claude\" and not s[\"subagent\"]][0]
-assert (m[\"input\"],m[\"cache_write\"],m[\"cache_read\"],m[\"output\"],m[\"calls\"])==(15,100,3000,70,2), m
-assert m[\"skills\"]=={\"bug-fix\":1} and m[\"subagents\"]=={\"git-ops\":1}
-sub=[s for s in d if s[\"subagent\"] and s[\"agent\"]==\"claude\"][0]; assert sub[\"parent\"]==\"sess1\" and sub[\"cache_read\"]==500"'
-check "usage: Codex 누적값·캐시 분리" 'python3 -c "
-import json; d=json.load(open(\"$TMP/usage.json\")); c=[s for s in d if s[\"agent\"]==\"codex\"][0]
-assert (c[\"input\"],c[\"cache_read\"],c[\"output\"],c[\"reasoning\"],c[\"calls\"])==(500,2500,90,20,2), c"'
-check "usage --by skill (텍스트)" '"$HB" usage --since 2000-01-01 --by skill | grep -q "bug-fix"'
-check "usage --cwd 필터" '[ "$("$HB" usage --since 2000-01-01 --cwd "$TMP/uproj" --json | python3 -c "import json,sys; print(len(json.load(sys.stdin)))")" = 3 ] && [ "$("$HB" usage --since 2000-01-01 --cwd /nonexistent --json | python3 -c "import json,sys; print(len(json.load(sys.stdin)))")" = 0 ]'
-check "usage: 정상 로그에서는 형식 경고 없음" '! "$HB" usage --since 2000-01-01 2>&1 | grep -q "토큰 기록을 하나도"'
-ZH="$TMP/zhome"; mkdir -p "$ZH/.claude/projects/-z"
-printf '%s\n' '{"type":"assistant","timestamp":"2026-09-10T00:00:00Z","sessionId":"z1","message":{"id":"m1","model":"claude-opus-5","content":[],"tokenUsage":{"input":10}}}' > "$ZH/.claude/projects/-z/z1.jsonl"
-HOME="$ZH" CODEX_HOME="$ZH/.codex" "$HB" usage --since 2000-01-01 > "$TMP/uz.txt" 2>&1
-check "usage: 로그는 읽혔는데 토큰 기록이 없으면 경고 (형식 변경 감지)" 'contains "$TMP/uz.txt" "claude 세션 로그 1개를 읽었지만 토큰 기록을 하나도 찾지 못했습니다"'
-
 echo "▶ 에이전트 실행 래퍼 (knack run)"
+HB="$KNACK_DIR/bin/knack"
 check "KNACK_CLAUDE_CMD 환경변수" 'KNACK_CLAUDE_CMD="mywrap claude --" "$HB" run git --agent claude --print --dry-run -- x 2>/dev/null | grep -q "^mywrap claude -- --model sonnet --print"'
 
 echo "▶ repo-scan: Spring 픽스처"
