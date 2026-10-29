@@ -54,6 +54,21 @@ DENY = [
     'dotnet run -e ASPNETCORE_ENVIRONMENT=Production',
     'env SPRING_PROFILES_ACTIVE=prod java -jar app.jar',
     'docker run -e ASPNETCORE_ENVIRONMENT=Production myapi:latest',
+    'dotnet ef --project src/Api database update',
+    'if true; then flyway migrate; fi',
+    '(cd db && flyway migrate)',
+    'for e in a b; do ./gradlew flywayMigrate; done',
+    'FLYWAY_URL=jdbc:postgresql://prod/app \\\nflyway migrate',
+    'mvn -P prod package',
+    'mvn -Pdev,prod package',
+    'mvn --activate-profiles=prod package',
+    'SPRING_PROFILES_ACTIVE=real java -jar app.jar',
+    'java -jar app.jar --spring.profiles.active=prod1',
+    'timeout 600 flyway migrate',
+    'dotnet tool run dotnet-ef database update',
+    'kubectl exec api-0 -- dotnet ef database update',
+    'liquibase execute-sql --sql "select 1"',
+    "cat > m.sh <<'EOF'\nflyway -url=jdbc:postgresql://prod/app migrate\nEOF\nbash m.sh",
     # 우회·동적
     'eval "dotnet ef database update"',
     'X="flyway migrate"; $X',
@@ -95,6 +110,14 @@ ALLOW = [
     "cat > docs/run.md <<'EOF'\nSPRING_PROFILES_ACTIVE=prod java -jar app.jar\nEOF",
     'ls -la && cat README.md',
     'apt-get update',
+    'mvn -P dev package',
+    'kubectl exec api-0 -- ls',
+    "git commit -m 'Add `flyway` config'",
+    'rg liquibase $(git diff --name-only)',
+    'gh pr create --title "flyway V3 추가" --body "$(cat <<EOF\n본문\nEOF\n)"',
+    'docker run -v $(pwd)/sql:/flyway/sql flyway/flyway -url=jdbc:postgresql://localhost/app migrate',
+    'dotnet ef --project src/Api migrations add Init',
+    '(cd db && flyway info)',
     'npm run build',
 ]
 
@@ -154,6 +177,8 @@ class GuardProd(unittest.TestCase):
         self.assertTrue(run("not json").startswith("deny"))
         self.assertTrue(run("[1,2]").startswith("deny"))
         self.assertTrue(run({"tool_name": "Bash", "tool_input": {}}).startswith("deny"))
+        self.assertTrue(run({"tool_name": "Bash", "tool_input": {"command": "  "}}).startswith("deny"))
+        self.assertTrue(run({"tool_name": "shell", "tool_input": {"command": []}}).startswith("deny"))
         self.assertTrue(run({"tool_name": "shell", "tool_input": {"command": 3}}).startswith("deny"))
         self.assertTrue(run({"tool_name": "exec_command", "tool_input": "flyway migrate"}).startswith("deny"))
 
@@ -195,6 +220,16 @@ class GuardProd(unittest.TestCase):
         for cmd in ("./migrate.sh", "bash migrate.sh", "source ./migrate.sh", "./nested.sh", "./big.sh"):
             with self.subTest(cmd=cmd):
                 self.assertTrue(all(r.startswith("deny") for r in self.both(cmd, d)), cmd)
+        os.makedirs(os.path.join(d, "scripts"))
+        with open(os.path.join(d, "scripts", "run.sh"), "w") as f:  # 실행 cwd 는 호출한 셸의 cwd
+            f.write("#!/bin/bash\nbash migrate.sh\n")
+        with open(os.path.join(d, "scripts", "rel.sh"), "w") as f:  # 스크립트 폴더 기준 상대 경로
+            f.write('#!/bin/bash\ncd "$(dirname "$0")"\n./inner.sh\n')
+        with open(os.path.join(d, "scripts", "inner.sh"), "w") as f:
+            f.write("#!/bin/bash\nflyway migrate\n")
+        for cmd in ("bash scripts/run.sh", "bash scripts/rel.sh"):
+            with self.subTest(cmd=cmd):
+                self.assertTrue(all(r.startswith("deny") for r in self.both(cmd, d)), cmd)
         self.assertEqual(self.both("./local.sh", d), ("allow", "allow"))
         self.assertEqual(self.both("./missing.sh", d), ("allow", "allow"))
 
@@ -211,6 +246,45 @@ class GuardProd(unittest.TestCase):
         self.assertEqual(self.both("./gradlew updateSQL", d), ("allow", "allow"))
         self.assertEqual(self.both("./gradlew update -Dliquibase.url=jdbc:postgresql://localhost/app", d),
                          ("allow", "allow"))
+
+    def test_codex_workdir_and_comments(self):
+        d = tempfile.mkdtemp()
+        os.makedirs(os.path.join(d, ".git"))
+        os.makedirs(os.path.join(d, "db", ".knack"))
+        with open(os.path.join(d, "db", ".knack", "safe-db-hosts"), "w") as f:
+            f.write("pg\n")
+        cmd = "flyway -url=jdbc:postgresql://pg/app migrate"
+        self.assertEqual(run({"tool_name": "shell", "tool_input": {"command": ["bash", "-lc", cmd], "workdir": "db"},
+                              "cwd": d}), "allow")
+        self.assertTrue(run({"tool_name": "shell", "tool_input": {"command": ["bash", "-lc", cmd]},
+                             "cwd": d}).startswith("deny"))
+        with open(os.path.join(d, "c.sh"), "w") as f:
+            f.write("#!/bin/bash\n# 운영: SPRING_PROFILES_ACTIVE=prod java -jar app.jar\necho ok\n")
+        self.assertEqual(self.both("bash c.sh", d), ("allow", "allow"))
+
+    def test_gradle_multimodule(self):
+        d = tempfile.mkdtemp()
+        os.makedirs(os.path.join(d, ".git"))
+        os.makedirs(os.path.join(d, "db"))
+        with open(os.path.join(d, "build.gradle.kts"), "w") as f:
+            f.write("plugins { java }\n")
+        with open(os.path.join(d, "db", "build.gradle.kts"), "w") as f:
+            f.write('plugins { id("org.liquibase.gradle") }\n')
+        self.assertTrue(all(r.startswith("deny") for r in self.both("./gradlew :db:update", d)))
+
+    def test_real_wrappers(self):
+        d = tempfile.mkdtemp()
+        os.makedirs(os.path.join(d, ".git"))
+        for w in ("gradlew", "mvnw"):
+            with open(os.path.join(d, w), "w") as f:
+                f.write('#!/bin/sh\nexec java -classpath wrapper.jar Main "$@"\n')
+            os.chmod(os.path.join(d, w), 0o755)
+        for cmd in ("./gradlew flywayMigrate", "bash gradlew flywayClean", "./mvnw liquibase:update"):
+            with self.subTest(cmd=cmd):
+                self.assertTrue(all(r.startswith("deny") for r in self.both(cmd, d)), cmd)
+        for cmd in ("./gradlew test", "./mvnw -q verify"):
+            with self.subTest(cmd=cmd):
+                self.assertEqual(self.both(cmd, d), ("allow", "allow"))
 
     def test_parser_missing_fails_closed(self):
         d = tempfile.mkdtemp()

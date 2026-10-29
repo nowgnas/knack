@@ -37,9 +37,9 @@ except Exception:  # 파서를 못 읽으면 판단할 수 없다 — 막는다
 SHELL_TOOLS = {"bash", "shell", "exec_command", "local_shell", "unified_exec", "container.exec"}
 # 이 단어가 있을 때만 파서 예외·동적 구문을 막는다(없으면 이 훅이 막을 명령이 아니다)
 STRONG = re.compile(r"(?i)database\s+(update|drop)|dotnet-ef|flyway|liquibase|_ENVIRONMENT|profiles[._]active"
-          r"|run\.profiles|--environment|-P(prod|production|prd|live)\b")
+          r"|run\.profiles|--environment|activate-profiles|-P\s*[\w,]*(prod|prd|live|real)")
 PROD_VARS = {"ASPNETCORE_ENVIRONMENT", "DOTNET_ENVIRONMENT", "SPRING_PROFILES_ACTIVE"}
-PROD_VALUES = {"prod", "production", "prd", "live"}
+PROD_VALUES = {"prod", "production", "prd", "live", "real"}  # real: 국내 레포에서 흔한 운영 프로파일 이름
 TARGET_VARS = ("FLYWAY_URL", "SPRING_DATASOURCE_URL", "SPRING_FLYWAY_URL", "SPRING_LIQUIBASE_URL",
                "LIQUIBASE_COMMAND_URL", "LIQUIBASE_URL")
 # 인자로 문자열을 받아 기록·검색만 하는 명령. 인자에 prod 가 적혀 있어도 실행이 아니다
@@ -51,7 +51,7 @@ FLYWAY_RISK = {"migrate", "clean", "repair", "undo", "baseline"}
 LIQUIBASE_RISK = {"update", "updatecount", "updatetotag", "updatetodate", "updatetestingrollback", "rollback",
                   "rollbackcount", "rollbacktodate", "rollbackonechangeset", "rollbackoneupdate", "dropall",
                   "changelogsync", "changelogsynctotag", "changelogsynccount", "releaselocks", "tag",
-                  "marknextchangesetran", "clearchecksums"}
+                  "marknextchangesetran", "clearchecksums", "executesql"}
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", "[::1]", "host.docker.internal", ".", "(local)", "0.0.0.0"}
 MAX_SCRIPT = 256 * 1024
 MAX_DEPTH = 2
@@ -78,10 +78,13 @@ def deny(why):
 
 # ── 대상 DB 해석 ─────────────────────────────
 def project_root(cwd):
-    d = os.path.abspath(cwd or os.getcwd())
+    """가장 가까운 .git 이 있는 폴더. 없으면 cwd 자신(루트 / 를 프로젝트로 보지 않는다)."""
+    start = d = os.path.abspath(cwd or os.getcwd())
     while True:
-        if os.path.exists(os.path.join(d, ".git")) or os.path.dirname(d) == d:
+        if os.path.exists(os.path.join(d, ".git")):
             return d
+        if os.path.dirname(d) == d:
+            return start
         d = os.path.dirname(d)
 
 
@@ -90,7 +93,7 @@ def safe_hosts(cwd):
     while True:
         f = os.path.join(d, ".knack", "safe-db-hosts")
         try:
-            for line in open(f, encoding="utf-8"):
+            for line in open(f, encoding="utf-8", errors="replace"):
                 line = line.split("#", 1)[0].strip().lower()
                 if line and "*" not in line and "?" not in line:
                     out.add(line)
@@ -116,7 +119,8 @@ def norm_host(h):
 
 
 def is_local(host, cwd, safe):
-    if host in LOCAL_HOSTS or host == "(localdb)" or host.startswith("127.") or host.endswith(".localhost"):
+    if (host in LOCAL_HOSTS or host == "(localdb)" or host.endswith(".localhost")
+            or re.fullmatch(r"127(\.\d{1,3}){3}", host)):
         return True
     return host in safe
 
@@ -199,9 +203,9 @@ def env_targets(env, extra=()):
 
 
 def prod_value(v):
-    """쉼표 목록의 프로파일 중 하나라도 prod·production·prd·live 이거나 그 조각(prod-kr, kr_prod)이면 True."""
+    """쉼표 목록의 프로파일 중 하나라도 운영 이름이거나 그 조각(prod-kr, kr_prod, prod1)이면 True."""
     for p in re.split(r"[,\s]+", v.strip().strip("'\"")):
-        if p and any(part in PROD_VALUES for part in re.split(r"[-_.]", p.lower())):
+        if p and any(part.rstrip("0123456789") in PROD_VALUES for part in re.split(r"[-_.]", p.lower())):
             return True
     return False
 
@@ -225,7 +229,17 @@ def check_prod(env, args, name):
             raise Deny(f"운영 환경 --environment {args[n + 1]}")
         if a.startswith("--environment=") and prod_value(a.split("=", 1)[1]):
             raise Deny(f"운영 환경 {a}")
-        if re.fullmatch(r"-P(prod|production|prd|live)", a, re.I):
+        if name in ("mvn", "mvnw", "mvnw.cmd"):  # -Pprod · -P dev,prod · --activate-profiles=prod
+            val = None
+            if re.fullmatch(r"-P.+", a):
+                val = a[2:]
+            elif a in ("-P", "--activate-profiles") and n + 1 < len(args):
+                val = args[n + 1]
+            elif a.startswith("--activate-profiles="):
+                val = a.split("=", 1)[1]
+            if val and prod_value(val.replace("!", "")):
+                raise Deny(f"운영 Maven 프로파일 {val}")
+        elif re.fullmatch(r"-P(prod|production|prd|live|real)\d*", a, re.I):
             raise Deny(f"운영 프로파일 {a}")
 
 
@@ -259,8 +273,22 @@ def build_has_liquibase(cwd):
                         except OSError:
                             return None
         if d == root or os.path.dirname(d) == d:
-            return False if seen else None
+            break
         d = os.path.dirname(d)
+    # 멀티모듈·included build(:db:update, -p db, build-logic/): 루트 아래 3단계까지
+    for base, dirs, files in os.walk(root):
+        dirs[:] = [x for x in dirs if not x.startswith(".") and x not in ("build", "node_modules", "out", "bin", "obj")]
+        if base[len(root):].count(os.sep) >= 3:
+            dirs[:] = []
+        for fn in files:
+            if fn in ("build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts"):
+                seen = True
+                try:
+                    if "liquibase" in open(os.path.join(base, fn), encoding="utf-8", errors="replace").read().lower():
+                        return True
+                except OSError:
+                    return None
+    return False if seen else None
 
 
 def check_migration(name, args, env, cwd, safe):
@@ -272,9 +300,10 @@ def check_migration(name, args, env, cwd, safe):
     elif name in ("dotnet-ef",):
         ef = args
     if ef is not None:
-        pos = [a.lower() for a in ef if not a.startswith("-")]
-        if pos[:1] == ["database"] and len(pos) > 1 and pos[1] in ("update", "drop"):
-            check_targets("dotnet ef database " + pos[1], opt_values(ef, ["--connection"]) + env_targets(env), cwd, safe)
+        el = [a.lower() for a in ef]  # 옵션이 앞에 와도 잡는다: dotnet ef --project src database update
+        verb = next((el[i + 1] for i, a in enumerate(el[:-1]) if a == "database" and el[i + 1] in ("update", "drop")), None)
+        if verb:
+            check_targets("dotnet ef database " + verb, opt_values(ef, ["--connection"]) + env_targets(env), cwd, safe)
         return
     if name == "flyway":
         if any(a in FLYWAY_RISK for a in low):
@@ -331,11 +360,17 @@ def url_props(args):
     return [a.split("=", 1)[1] for a in args if re.match(r"-[DP][\w.]*url=", a, re.I)]
 
 
-def check_command(cmd, cwd, env, depth=0, seen=None):
+KEYWORDS = {"if", "then", "else", "elif", "do", "while", "until", "!", "{", "(", "fi", "done", "}", ")"}
+WRAPPER_SCRIPTS = {"gradlew", "mvnw"}
+MIGRATION_TOOLS = {"dotnet", "dotnet-ef", "flyway", "liquibase", "gradle", "gradlew", "mvn", "mvnw"}
+
+
+def check_command(cmd, cwd, env, depth=0, seen=None, script_dir=None):
     """명령 문자열 하나. env 는 export·대입으로 바뀌는 셸 환경(대입만 추적)."""
     if depth > MAX_DEPTH:
         raise Deny("셸 스크립트·bash -c 중첩이 너무 깊어 검사할 수 없습니다")
     safe = safe_hosts(cwd)
+    cmd = cmd.replace("\\\r\n", " ").replace("\\\n", " ")  # 줄 이어쓰기
     body, docs = split_heredocs(cmd)
     for start, text in docs:  # bash <<EOF 처럼 셸에 먹이는 히어독만 명령으로 본다
         sw, _ = words(start.split("<<", 1)[0])
@@ -344,7 +379,19 @@ def check_command(cmd, cwd, env, depth=0, seen=None):
             check_command(text, cwd, dict(env), depth + 1, seen)
     for seg, sep in segments(body):
         toks, _ = words(seg)
+        while toks and (toks[0] in KEYWORDS or toks[0][:1] == "("):  # if/then/do …, (서브셸
+            toks = toks[1:] if toks[0] in KEYWORDS else [toks[0][1:]] + toks[1:]
+        toks = [t.rstrip(")") if "(" not in t else t for t in toks]  # (서브셸 … 끝의 ")"
+        toks = [t for t in toks if t and t != "}"]
         assigns, rest = split_prefix(toks)
+        while rest and os.path.basename(rest[0]) in ("timeout", "stdbuf", "ionice", "chronic"):
+            rest = rest[1:]
+            while rest and rest[0].startswith("-"):
+                rest = rest[1:]
+            if rest and re.fullmatch(r"[\d.]+[smhd]?", rest[0]):  # timeout 600
+                rest = rest[1:]
+            more, rest = split_prefix(rest)
+            assigns += more
         local = dict(env)
         for a in assigns:
             k, v = a.split("=", 1)
@@ -369,9 +416,27 @@ def check_command(cmd, cwd, env, depth=0, seen=None):
         dynamic = (name == "eval" or rest[0].startswith("$") or "$(" in seg or "`" in seg
                    or (name in SHELLS and sep == "|" and not any(a.startswith("-c") or not a.startswith("-") for a in args)))
         check_prod(local, args, name)
+        # 기록·검색 명령(gh·git·echo…)은 치환 안에 위험 단어가 있을 때만 동적 구문으로 본다
+        # 치환($( ), 백틱) 안에 위험 단어가 있을 때만 판단 불가로 본다. 작은따옴표 안은 치환이 아니다.
+        # 치환이 대상 자리에 오면(--connection "$(cat cs)") check_targets 가 해석 불가로 막는다
+        unq = re.sub(r"'[^']*'", "", seg)
+        subs = " ".join(x for pair in re.findall(r"\$\(([^)]*)\)|`([^`]*)`", unq) for x in pair)
         if dynamic and STRONG.search(cmd) and (name == "eval" or rest[0].startswith("$") or name in SHELLS
-                                               or STRONG.search(seg)):
+                                               or STRONG.search(subs)):
             raise Deny("위험 명령과 함께 쓴 동적 구문(eval, $( ), 백틱, | sh)은 판단할 수 없습니다")
+        if name in ("kubectl", "oc", "docker", "podman") and "exec" in args:  # 컨테이너 안 실행은 대상 불명 → 도구만 보고 판정
+            tail = args[args.index("--") + 1:] if "--" in args else args[args.index("exec") + 1:]
+            for n, w in enumerate(tail):
+                if os.path.basename(w) in MIGRATION_TOOLS:
+                    check_prod(local, tail[n + 1:], os.path.basename(w))
+                    check_migration(os.path.basename(w), tail[n + 1:], local, cwd, set())
+                    break
+            continue
+        if name == "dotnet" and args[:2] == ["tool", "run"] and len(args) > 2:  # dotnet tool run dotnet-ef …
+            name, args = args[2], args[3:]
+        if name in SHELLS and args and os.path.basename(args[0]) in WRAPPER_SCRIPTS:  # bash gradlew …
+            check_migration(os.path.basename(args[0]), args[1:], local, cwd, safe)
+            continue
         if name in SHELLS or name == "source" or name == ".":
             inner = None
             for n, w in enumerate(args):
@@ -381,15 +446,15 @@ def check_command(cmd, cwd, env, depth=0, seen=None):
             if inner is not None:
                 if "$" in inner and STRONG.search(cmd):
                     raise Deny("위험 명령과 함께 쓴 sh -c \"$변수\" 는 판단할 수 없습니다")
-                check_command(inner, cwd, dict(local), depth + 1, seen)
+                check_command(inner, cwd, dict(local), depth + 1, seen, script_dir)
                 continue
             script = next((w for w in args if not w.startswith("-")), None)
             if script:
-                check_script(script, cwd, local, depth, seen)
+                check_script(script, cwd, local, depth, seen, script_dir, whole=cmd)
             continue
-        if rest[0].endswith((".sh", ".bash")) or ("/" in rest[0] and is_shell_script(rest[0], cwd)):
-            check_script(rest[0], cwd, local, depth, seen)
-            continue
+        if name not in WRAPPER_SCRIPTS and (rest[0].endswith((".sh", ".bash")) or "/" in rest[0]):
+            if check_script(rest[0], cwd, local, depth, seen, script_dir, need_shebang=True, whole=cmd):
+                continue
         check_migration(name, args, local, cwd, safe)
 
 
@@ -403,15 +468,21 @@ def is_shell_script(path, cwd):
     return head.startswith(b"#!") and any(s.encode() in head for s in SHELLS) and b"gradle" not in head.lower()
 
 
-def check_script(path, cwd, env, depth, seen):
-    full = os.path.realpath(os.path.join(cwd or os.getcwd(), os.path.expanduser(path)))
-    if not os.path.exists(full):
-        return  # 없는 파일은 실행되지 않는다
-    if os.path.basename(full) in ("gradlew", "mvnw"):
-        return
+def check_script(path, cwd, env, depth, seen, script_dir=None, need_shebang=False, whole=None):
+    """셸 스크립트면 내용을 검사하고 True. 실행 cwd 는 호출한 셸의 cwd 를 그대로 쓴다.
+    스크립트 안의 상대 경로는 cwd 에 없으면 그 스크립트가 있는 폴더 기준으로도 찾는다."""
+    path = os.path.expanduser(path)
+    cands = [os.path.join(cwd or os.getcwd(), path)] + ([os.path.join(script_dir, path)] if script_dir else [])
+    full = next((os.path.realpath(c) for c in cands if os.path.isfile(c)), None)
+    if not full:
+        if STRONG.search(whole or ""):  # cat > m.sh <<EOF … EOF; bash m.sh — 아직 없는 파일을 같은 명령에서 만든다
+            raise Deny(f"같은 명령에서 만드는 스크립트는 검사할 수 없습니다: {path}")
+        return not need_shebang  # 없는 파일은 실행되지 않는다
+    if need_shebang and not full.endswith((".sh", ".bash")) and not is_shell_script(full, cwd):
+        return False
     seen = set(seen or ())
     if full in seen:
-        return
+        return True
     seen.add(full)
     try:
         if os.path.getsize(full) > MAX_SCRIPT:
@@ -419,7 +490,9 @@ def check_script(path, cwd, env, depth, seen):
         text = open(full, encoding="utf-8").read()
     except (OSError, UnicodeDecodeError):
         raise Deny(f"스크립트를 읽을 수 없어 검사할 수 없습니다: {path}")
-    check_command(text, os.path.dirname(full), dict(env), depth + 1, seen)
+    text = "\n".join(l for l in text.splitlines() if not l.lstrip().startswith("#"))  # 주석 줄
+    check_command(text, cwd, dict(env), depth + 1, seen, os.path.dirname(full))
+    return True
 
 
 def commands(payload):
@@ -441,6 +514,7 @@ def commands(payload):
             out.append(argv_to_cmd(v))
         else:
             raise Deny("셸 명령 형식을 해석할 수 없습니다")
+    out = [c for c in out if c.strip()]
     if not out and tool in SHELL_TOOLS:
         raise Deny("셸 도구인데 명령이 없습니다")
     return out
@@ -457,14 +531,21 @@ def argv_to_cmd(argv):
 def main():
     if os.environ.get("KNACK_GUARD_PROD", "").lower() == "off":
         return
-    raw = sys.stdin.read()
+    try:  # Windows 콘솔 인코딩에서도 deny JSON 을 쓸 수 있게
+        sys.stdout.reconfigure(encoding="utf-8")
+    except (AttributeError, ValueError):
+        pass
     try:
+        raw = sys.stdin.buffer.read().decode("utf-8")
         payload = json.loads(raw)
         if not isinstance(payload, dict):
             raise ValueError
-    except ValueError:
+    except ValueError:  # UnicodeDecodeError 포함
         deny("훅 입력(JSON)을 해석할 수 없습니다")
     cwd = payload.get("cwd") if isinstance(payload.get("cwd"), str) else ""
+    ti = payload.get("tool_input")
+    if isinstance(ti, dict) and isinstance(ti.get("workdir"), str) and ti["workdir"]:  # Codex shell 의 작업 폴더
+        cwd = os.path.join(cwd or os.getcwd(), ti["workdir"])
     try:
         for cmd in commands(payload):
             check_command(cmd, cwd, {})

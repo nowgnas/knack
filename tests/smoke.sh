@@ -128,10 +128,11 @@ assert d[\"hooks\"][\"SessionStart\"][0][\"hooks\"][0][\"command\"]==\"echo hi\"
 g={h[\"command\"].split()[-1]: grp for grp in d[\"hooks\"][\"PreToolUse\"] for h in grp[\"hooks\"] if \"--knack-hook\" in h[\"command\"]}
 assert set(g)>={\"guard-agent-config\",\"guard-prod-ops\"} and all(\"matcher\" not in v for v in g.values()), g"'
 
+printf '%s' '{"tool_name":"shell","tool_input":{"command":["bash","-lc","flyway migrate"]}}' > "$TMP/gpo-deny.json"
+printf '%s' '{"tool_name":"Bash","tool_input":{"command":"flyway -url=jdbc:postgresql://localhost/app migrate"}}' > "$TMP/gpo-allow.json"
+GPO="$(python3 -c "import json;d=json.load(open('$CODEX_HOME/hooks.json'));print(next(h['command'] for g in d['hooks']['PreToolUse'] for h in g['hooks'] if 'guard-prod-ops' in h['command']))")"
 check "설치된 guard-prod-ops 명령: 운영 마이그레이션 차단 · 로컬 대상 통과" '
-  c="$(python3 -c "import json;d=json.load(open(\"$CODEX_HOME/hooks.json\"));print(next(h[\"command\"] for g in d[\"hooks\"][\"PreToolUse\"] for h in g[\"hooks\"] if \"guard-prod-ops\" in h[\"command\"]))")" &&
-  printf "%s" "{\"tool_name\":\"shell\",\"tool_input\":{\"command\":[\"bash\",\"-lc\",\"flyway migrate\"]}}" | eval "$c" | grep -q "\"deny\"" &&
-  [ -z "$(printf "%s" "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"flyway -url=jdbc:postgresql://localhost/app migrate\"}}" | eval "$c")" ]'
+  eval "$GPO" < "$TMP/gpo-deny.json" | grep -q "\"deny\"" && [ -z "$(eval "$GPO" < "$TMP/gpo-allow.json")" ]'
 
 echo "▶ 재설치 (멱등성)"
 snap() { cat "$HOME/.claude/CLAUDE.md" "$CODEX_HOME/AGENTS.md" "$HOME/.claude/settings.json" "$CODEX_HOME/hooks.json" "$CODEX_HOME/config.toml" "$HOME"/.claude/agents/*.md "$ROLES"/*.toml | cksum; }

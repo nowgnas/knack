@@ -143,9 +143,6 @@ def check_block_edit(full, tool_input, cwd):
             pos = text.find(old, pos + 1)
 
 
-
-
-
 def write_targets(words):
     """이 명령이 쓰는 경로들. 쓰기 명령이 아니면 빈 목록 — 읽기 명령과 복사 원본은 막지 않는다."""
     if not words:
