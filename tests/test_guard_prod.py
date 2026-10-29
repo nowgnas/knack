@@ -20,6 +20,7 @@ DENY = [
     'kubectl exec api-0 -- flyway -url=jdbc:postgresql://localhost/app migrate',
     'mvn -P dev,prod test',
     'flyway $(cat args.txt)',
+    'cp /tmp/flyway-src ./guard-run && chmod +x ./guard-run && ./guard-run',
     'docker run -v $(pwd)/sql:/flyway/sql flyway/flyway -url=jdbc:postgresql://localhost/app migrate',  # 치환 + 마이그레이션 단어 → 판단 불가
     'SPRING_PROFILES_ACTIVE=$(cat .profile) java -jar app.jar',
     'dotnet ef database $(echo update)',

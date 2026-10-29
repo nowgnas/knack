@@ -298,7 +298,7 @@ def build_has_liquibase(cwd):
                     if "liquibase" in open(os.path.join(base, fn), encoding="utf-8", errors="replace").read().lower():
                         return True
                 except OSError:
-                    continue
+                    return None
     return False if seen else None
 
 
@@ -502,11 +502,10 @@ def check_script(path, cwd, env, depth, seen, script_dir=None, need_shebang=Fals
     full = next((os.path.realpath(c) for c in cands if os.path.isfile(c)), None)
     if not full:
         # cat > m.sh <<EOF … EOF; bash m.sh — 아직 없는 셸 스크립트를 같은 명령에서 쓰고 실행한다
-        shellish = not need_shebang or path.endswith((".sh", ".bash"))
         bare = re.escape(re.sub(r"^\./", "", path))
         written = re.search(r"(>>?|\btee(\s+-a)?|\b(cp|mv|install|ln)\b[^;&|\n]*)\s*['\"]?(\./)?" + bare + r"\b",
                             whole or "")
-        if shellish and written and STRONG.search(whole or ""):
+        if written and STRONG.search(whole or ""):  # 확장자 없는 실행 파일도 같다
             raise Deny(f"같은 명령에서 만드는 스크립트는 검사할 수 없습니다: {path}")
         return not need_shebang  # 없는 파일은 실행되지 않는다
     if need_shebang and not full.endswith((".sh", ".bash")) and not is_shell_script(full, cwd):
