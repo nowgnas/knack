@@ -40,6 +40,11 @@ JVM_PLUGIN = re.compile(
     r"""|alias\s*\(\s*libs\.plugins\.kotlin[\w.]*jvm\s*\)""")
 
 
+APPLY_FALSE = re.compile(
+    r"""(id\s*\(?\s*["'][^"']+["']\s*\)?|alias\s*\([^)]*\)|kotlin\s*\([^)]*\)|`[\w-]+`)"""
+    r"""(\s*\.?\s*version\s*\(?\s*["'][^"']*["']\s*\)?)?\s*\.?\s*apply\s*\(?\s*false\s*\)?""")
+
+
 def plugin_re(plugin_id, alias, block):
     """플러그인 '적용'만 근거로 본다: plugins{} 의 id·alias, apply plugin, 설정 블록."""
     q = re.escape(plugin_id)
@@ -118,8 +123,8 @@ def gradle_unit(root, rel, files):
     base = os.path.join(root, rel)
     ev = [f for f in files if re.fullmatch(r"(build|settings)\.gradle(\.kts)?|gradlew", f)]
     text = "\n".join(strip_comments(read(p)) for p in gradle_files(base))
-    # `id 'java' apply false` 처럼 선언만 하고 적용하지 않은 줄은 근거에서 뺀다
-    text = re.sub(r"(?m)^.*\bapply\s*\(?\s*false\b.*$", "", text)
+    # `id 'java' apply false` 처럼 선언만 하고 적용하지 않은 플러그인은 근거에서 뺀다(그 선언만, 줄바꿈 포함)
+    text = APPLY_FALSE.sub("", text)
     w = "./gradlew" if "gradlew" in files else None
     g = w or "gradle"
     jvm = bool(JVM_PLUGIN.search(text))

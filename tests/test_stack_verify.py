@@ -108,6 +108,13 @@ class StackDetect(unittest.TestCase):
         write(self.d, "a/build.gradle", "plugins { id 'java' }")
         self.assertEqual(detect(self.d)["units"][0]["commands"]["test"], "gradle test")
 
+    def test_gradle_apply_false_removes_only_that_plugin(self):
+        write(self.d, "build.gradle.kts", 'plugins {\n    id("org.jetbrains.kotlin.jvm")\n        .apply(false)\n}')
+        self.assertIsNone(detect(self.d)["units"][0]["commands"]["test"])
+        write(self.d, "build.gradle.kts", 'plugins { java; id("com.diffplug.spotless") version "6.25.0" apply false }')
+        c = detect(self.d)["units"][0]["commands"]
+        self.assertEqual((c["test"], c["format"]), ("gradle test", None))
+
     def test_gradle_multiline_include(self):
         write(self.d, "settings.gradle.kts", 'include(\n    "api",\n    "empty"\n)')
         write(self.d, "build.gradle.kts", "plugins { java }")
