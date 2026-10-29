@@ -1,0 +1,10 @@
+{
+  "name": "guard-prod-ops",
+  "description": "운영 DB 마이그레이션(ef·flyway·liquibase)과 운영 환경·프로파일 실행을 막는다. 대상이 명시된 로컬 DB만 허용 (fail-closed)",
+  "enabled": true,
+  "command": "guard_prod.py",
+  "targets": {
+    "claude": {"event": "PreToolUse", "matcher": "Bash", "timeout": 10},
+    "codex": {"event": "PreToolUse", "timeout": 10}
+  }
+}

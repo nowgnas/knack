@@ -12,6 +12,9 @@ import os
 import re
 import sys
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "_shared"))
+from shellparse import SEGMENT, SHELLS, scan, strip_heredocs, unwrap  # noqa: E402
+
 HOME_FORMS = {os.path.expanduser("~"), os.path.realpath(os.path.expanduser("~"))}
 KNACK = os.path.realpath(os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", ".."))
 PROTECTED = (".claude/skills", ".claude/agents", ".agents/skills", ".codex/skills", ".copilot/skills")
@@ -23,13 +26,7 @@ WRITE_CMDS = {"cp", "mv", "ln", "rsync", "install", "mkdir", "rm", "rmdir", "tou
 INPLACE_CMDS = {"sed", "perl"}  # -i 가 붙었을 때만 쓰기
 DEST_ONLY_CMDS = {"cp", "ln", "install", "rsync"}  # 원본은 읽기만 한다. mv 는 원본을 지우므로 넣지 않는다
 GIT_WRITE_SUB = {"clone", "init"}
-WRAPPERS = {"sudo", "command", "nohup", "time", "exec", "env", "xargs", "nice"}
-WRAPPER_ARG_OPTS = {"-u", "-g", "-I", "-n", "-L", "-P", "-d", "-s", "-E"}  # 다음 토큰을 값으로 받는 래퍼 옵션
 FIND_EXEC = {"-exec", "-execdir", "-ok", "-okdir"}
-SHELLS = {"bash", "sh", "zsh", "dash", "ksh"}
-ASSIGN = re.compile(r"^[A-Za-z_][A-Za-z_0-9]*=")
-HEREDOC = re.compile(r"(?<!<)<<(?!<)-?\s*(['\"]?)(\w+)\1")  # <<< 는 히어스트링이라 본문이 없다
-SEGMENT = re.compile(r"\|\||&&|[;|\n]")
 KNACK_CMD = re.compile(r"^\s*\(?\s*(knack\s|\S*/install\.sh\b)")
 CD = re.compile(r"""^\s*cd\s+("[^"]*"|'[^']*'|[^\s;&|]+)\s*$""")
 PATCH_FILE = re.compile(r"^\*\*\* (?:Add|Update|Delete) File: (.+)$", re.M)
@@ -144,68 +141,6 @@ def check_block_edit(full, tool_input, cwd):
             if pos < j and pos + len(old) > i:
                 deny(full, block=True)
             pos = text.find(old, pos + 1)
-
-
-def strip_heredocs(cmd):
-    """히어독 본문을 걷어낸다. 본문은 데이터라 그 안의 명령·경로를 실행으로 읽으면 안 된다
-    (스킬·문서에 예시 명령을 적는 작업이 전부 막힌다). 히어독을 시작한 줄은 남긴다."""
-    out, marker = [], None
-    for line in cmd.split("\n"):
-        if marker is not None:
-            if line.strip() == marker:
-                marker = None
-            continue
-        out.append(line)
-        m = HEREDOC.search(line)
-        if m:
-            marker = m.group(2)
-    return "\n".join(out)
-
-
-def scan(seg):
-    """세그먼트를 훑어 (실행 토큰, 리다이렉트 대상) 을 돌려준다.
-
-    따옴표 안은 토큰 하나로 묶어 그 안의 '>' 나 명령 이름을 실행으로 보지 않는다.
-    '>' 바로 뒤의 토큰만 쓰기 대상이다 — 따옴표로 감싼 경로도 대상으로 잡는다.
-    """
-    toks, targets, cur, redirect, i = [], [], "", False, 0
-    while i < len(seg):
-        c = seg[i]
-        if c in "'\"":
-            j = seg.find(c, i + 1)
-            cur += seg[i + 1:j if j >= 0 else len(seg)]
-            i = (j + 1) if j >= 0 else len(seg)
-            continue
-        if c.isspace() or c in "><":
-            if cur:
-                (targets if redirect else toks).append(cur)
-                cur, redirect = "", False
-            if c == ">":
-                i += 2 if seg[i + 1:i + 2] == ">" else 1
-                redirect = True
-                continue
-            i += 1
-            continue
-        cur += c
-        i += 1
-    if cur:
-        (targets if redirect else toks).append(cur)
-    return unwrap(toks), targets
-
-
-def unwrap(toks):
-    """sudo·env·xargs 같은 래퍼와 그 옵션, 변수 대입을 걷어내 실제로 실행되는 명령부터 돌려준다."""
-    i = 0
-    while i < len(toks):
-        if ASSIGN.match(toks[i]):
-            i += 1
-        elif os.path.basename(toks[i]) in WRAPPERS:
-            i += 1
-            while i < len(toks) and toks[i].startswith("-"):
-                i += 2 if toks[i] in WRAPPER_ARG_OPTS else 1
-        else:
-            break
-    return toks[i:]
 
 
 def write_targets(words):

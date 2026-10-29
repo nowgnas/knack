@@ -8,7 +8,7 @@
 - `agents/*.md` — 서브에이전트. `task:`(models.json 작업 유형)로 모델이 정해지고, Claude 파일·Codex 역할로 생성된다. `sandbox:`는 Codex 역할에만 적용
 - `models.json` — 작업 유형 → 티어 → 에이전트별 모델·effort, `main`은 세션 기본 모델. 변경은 `knack model set`.
   모델은 이름 하나 또는 후보 목록(`["gpt-6-astra", "gpt-6-sol"]`)으로 적고, 설치된 첫 모델이 쓰인다. PC 전용 값은 `~/.config/knack/models.local.json`에 두면 덮어쓴다(커밋되지 않음)
-- `hooks/<name>/hook.json` + 스크립트 — 훅. `targets`에 에이전트별 event/matcher
+- `hooks/<name>/hook.json` + 스크립트 — 훅. `targets`에 에이전트별 event/matcher. `hooks/_shared/`는 공용 셸 파서(훅 아님)
 - `lib/knack.py` — list/show/search/doctor/add/new/adopt/hook/model, 외부 항목 조회(Claude Code·데스크톱 앱 플러그인 포함), 훅·모델 설정 동기화
 - `lib/gate.py`, `lib/persona.py` — 완료 게이트 확인·재검증, 페르소나 (`knack gate`, `knack persona`)
 - `persona/` — 페르소나 템플릿. 실제 `core.md`·`detail/`은 개인 정보라 gitignore

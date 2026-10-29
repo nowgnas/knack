@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- Add the `guard-prod-ops` hook (Claude and Codex): it fails closed on migrations aimed at a non-local DB (`dotnet ef database update/drop`, Flyway, Liquibase, their Gradle and Maven plugins, Docker images) and on runs with a production environment or profile. Allowed targets are local hosts, Testcontainers, in-memory DBs, project SQLite files and hosts listed in `.knack/safe-db-hosts`. The shell parser shared with `guard-agent-config` moves to `hooks/_shared/shellparse.py`.
 - Add an on-demand Obsidian Daily rule with user-local vault and TODO configuration.
 - Add a generic Obsidian vault configuration template without personal paths or note content.
 - Add GitHub Copilot CLI as an install target: skills via the shared `~/.agents/skills`, rules in a block in `~/.copilot/copilot-instructions.md` (respects `COPILOT_HOME`).
