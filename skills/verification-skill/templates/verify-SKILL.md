@@ -9,10 +9,10 @@ description: <앱>(<Spring Boot|ASP.NET Core> <표면: REST API 등>)를 로컬�
 기능 목록: [features/README.md](features/README.md) · 실행 기록: [EVIDENCE.md](EVIDENCE.md)
 
 ## 띄우기
-- 기동 전: 포트가 비었는지(`<lsof -iTCP:8080 -sTCP:LISTEN>`), 고른 프로파일의 datasource·브로커가 localhost/컨테이너인지 확인한다
-- 의존 자원: `<docker compose -p verify-<앱> -f compose.yaml up -d db>`(전용 프로젝트 이름) — 준비 신호: `<pg_isready -h localhost -p 5432>`
+- 기동 전: 앱·의존 자원 포트가 모두 비었는지(`<lsof -iTCP:8080 -iTCP:5432 -sTCP:LISTEN>`), 고른 프로파일의 datasource·브로커가 localhost/컨테이너인지 확인한다. compose 파일에 고정 `container_name`이 있으면 멈추고 보고한다
+- 의존 자원: 실행마다 새 프로젝트 이름 `P=verify-<앱>-$(date +%s)`을 기록하고 `<docker compose -p "$P" -f compose.yaml up -d db>` — 준비 신호: `<pg_isready -h localhost -p 5432>`
   - Spring Boot docker-compose 지원(3.1+)을 쓰는 레포면 `<spring.docker.compose.enabled=false>`로 끄고 위 명령으로 띄운다
-- 앱: `<./gradlew bootRun --args='--spring.profiles.active=local' | dotnet run --project src/Api --launch-profile <로컬 프로필>>`
+- 앱: `<./gradlew bootRun --args='--spring.profiles.active=local' | dotnet run --project src/Api --launch-profile <로컬 프로필> | ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/Api --no-launch-profile>`
   - `bootRun`·`dotnet run`은 앱을 자식 프로세스로 띄운다. 준비 신호 뒤 `<lsof -tiTCP:8080 -sTCP:LISTEN>`으로 리스너 PID를 기록한다(`$!`는 런처 PID)
   - 포트: `<8080>` · 필요한 환경 변수: `<없음 | 이름=로컬 값>` · 시드: `<명령 또는 자동>`
 - 준비 완료: `<curl -fsS localhost:8080/actuator/health>`가 `UP`이고, `<시드 확인 명령>`이 기대 값을 낸다
@@ -36,7 +36,7 @@ description: <앱>(<Spring Boot|ASP.NET Core> <표면: REST API 등>)를 로컬�
 - dry-run·테스트 모드를 쓰면 실제로 무엇을 건너뛰는지 관찰로 확인한다(이름을 믿지 않는다)
 
 ## 정리
-- 이번에 띄운 PID와 컨테이너만 멈춘다: `<kill <리스너 PID> <런처 PID>>`, `<docker compose -p verify-<앱> -f compose.yaml down>`. 기동 전에 떠 있던 것과 프로세스 이름으로는 건드리지 않는다
+- 이번에 띄운 PID와 컨테이너만 멈춘다: `<kill <리스너 PID> <런처 PID>>`, `<docker compose -p "$P" -f compose.yaml down -v>`(이번 실행 전용 프로젝트라 볼륨까지 지워 다음 실행이 빈 상태에서 시작한다). 기동 전에 떠 있던 것과 프로세스 이름으로는 건드리지 않는다
 - 증거 폴더는 남긴다. 정리 뒤에 증거가 그 위치에 있는지 확인한다
 
 <!-- 출처: pstack (MIT, Lauren Tan, cursor/plugins@1ba91fc) · knack THIRD_PARTY_NOTICES.md -->

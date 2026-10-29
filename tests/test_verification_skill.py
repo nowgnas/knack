@@ -127,6 +127,20 @@ class LinkSkill(unittest.TestCase):
         self.assertTrue(os.path.isfile(os.path.join(self.dst, ".knack-copy.sha256")))
         self.assertEqual(run("check", self.d, NAME).returncode, 0)
 
+    def test_failed_fallback_copy_keeps_existing_copy(self):
+        self.assertEqual(run("link", self.d, NAME, "--copy").returncode, 0)
+        mod = load_module()
+        def fail(*a, **k):
+            raise OSError("boom")
+        with unittest.mock.patch.object(mod.os, "symlink", fail), \
+                unittest.mock.patch.object(mod.shutil, "copytree", fail), \
+                unittest.mock.patch("sys.stdout", new=io.StringIO()):
+            with self.assertRaises(OSError):
+                mod.link(self.d, NAME)
+        self.assertEqual(run("check", self.d, NAME).returncode, 0)  # 기존 사본이 그대로 남는다
+        leftovers = [n for n in os.listdir(os.path.dirname(self.dst)) if n != NAME]
+        self.assertEqual(leftovers, [])
+
     def test_windows_placeholder_file_is_replaced(self):
         write(os.path.dirname(self.dst), NAME, "../../.agents/skills/" + NAME + "\n")
         r = run("check", self.d, NAME)

@@ -13,7 +13,7 @@ description: 레포의 앱을 사용자처럼 띄우고 호출해 동작을 증�
 | 질문 | Spring Boot | .NET |
 |---|---|---|
 | 표면 | REST 컨트롤러, 메시지 리스너, 배치 | 컨트롤러·Minimal API, 워커, gRPC |
-| 띄우기 | `./gradlew bootRun --args='--spring.profiles.active=local'` · `./mvnw spring-boot:run -Dspring-boot.run.profiles=local` | `dotnet run --project <Api.csproj> --launch-profile <로컬 프로필>` · `ASPNETCORE_ENVIRONMENT=Development dotnet run ...` |
+| 띄우기 | `./gradlew bootRun --args='--spring.profiles.active=local'` · `./mvnw spring-boot:run -Dspring-boot.run.profiles=local` | `dotnet run --project <Api.csproj> --launch-profile <로컬 프로필>` · `ASPNETCORE_ENVIRONMENT=Development dotnet run --no-launch-profile ...` |
 | 의존 자원 | `compose.yaml`·`docker-compose*.yml`, Testcontainers, `application-local.yml` | `docker-compose*.yml`, `appsettings.Development.json`, Aspire AppHost |
 | 준비 신호 | `/actuator/health`가 UP, `Started ...Application` 로그 | `Now listening on:` 로그, `/health` |
 | 조작 | `curl`, `.http` 파일 (통합 테스트는 인메모리라 참고만) | `curl`, `.http` 파일 (`WebApplicationFactory`는 참고만) |

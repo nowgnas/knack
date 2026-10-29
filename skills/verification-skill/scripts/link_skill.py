@@ -44,8 +44,11 @@ def paths(repo, name):
     """정본·대상 경로. 중간 폴더가 심볼릭 링크면 레포 밖을 건드릴 수 있으므로 거부한다."""
     repo = Path(repo).resolve()
     for rel in (".agents", ".agents/skills", ".claude", ".claude/skills"):
-        if (repo / rel).is_symlink():
-            raise ValueError(f"{repo / rel} 가 심볼릭 링크라 거부한다 — 실제 폴더로 바꾼 뒤 다시 돌린다")
+        p = repo / rel
+        if p.is_symlink():
+            raise ValueError(f"{p} 가 심볼릭 링크라 거부한다 — 실제 폴더로 바꾼 뒤 다시 돌린다")
+        if p.exists() and not p.is_dir():
+            raise ValueError(f"{p} 가 폴더가 아니라 거부한다")
     return repo / ".agents" / "skills" / name, repo / ".claude" / "skills" / name
 
 
@@ -90,38 +93,57 @@ def remove_existing(src, dst, name, force):
     return None
 
 
+def stage_copy(src, parent, name):
+    staged = Path(tempfile.mkdtemp(prefix=f".{name}.copy-", dir=parent))
+    shutil.rmtree(staged)
+    shutil.copytree(src, staged)
+    write_manifest(src, staged)
+    return staged
+
+
+def stage_link(parent, name):
+    """임시 이름으로 링크를 먼저 만들어 본다. 실패하면 None."""
+    tmp = parent / f".{name}.link-{os.getpid()}"
+    try:
+        os.symlink(expected_target(name), tmp, target_is_directory=True)
+        return tmp
+    except (OSError, NotImplementedError) as e:
+        print(f"심볼릭 링크 실패({e.__class__.__name__}) — 복사로 대신한다")
+        return None
+
+
 def link(repo, name, copy=False, force=False):
     src, dst = paths(repo, name)
     if not (src / "SKILL.md").is_file():
         print(f"정본 없음: {src}/SKILL.md")
         return 1
     dst.parent.mkdir(parents=True, exist_ok=True)
-    # 복사는 임시 폴더에 먼저 만들어 두고, 성공한 뒤에만 기존 것을 교체한다
-    staged = None
-    if copy:
-        staged = Path(tempfile.mkdtemp(prefix=f".{name}.", dir=dst.parent))
-        shutil.rmtree(staged)
-        shutil.copytree(src, staged)
-        write_manifest(src, staged)
-    reason = remove_existing(src, dst, name, force)
-    if reason:
-        if staged:
-            shutil.rmtree(staged)
-        print("덮어쓰지 않음: " + reason)
-        return 2
-    if not copy:
-        try:
-            os.symlink(expected_target(name), dst, target_is_directory=True)
-            print(f"링크: {dst} -> {os.readlink(dst)}")
-            return 0
-        except (OSError, NotImplementedError) as e:
-            print(f"심볼릭 링크 실패({e.__class__.__name__}) — 복사로 대신한다")
-            staged = Path(tempfile.mkdtemp(prefix=f".{name}.", dir=dst.parent))
-            shutil.rmtree(staged)
-            shutil.copytree(src, staged)
-            write_manifest(src, staged)
-    os.replace(staged, dst)
-    print(f"복사: {dst} (sha256 목록 {MANIFEST}). 정본을 고치면 link 를 다시 돌린다")
+    # 새 링크나 복사본을 임시 이름으로 다 만든 뒤에만 기존 것을 지우고 바꿔 넣는다
+    staged = None if copy else stage_link(dst.parent, name)
+    kind = "링크"
+    try:
+        if staged is None:
+            staged, kind = stage_copy(src, dst.parent, name), "복사"
+        placeholder = dst.is_file() and not dst.is_symlink() and is_placeholder_file(dst, name)
+        reason = remove_existing(src, dst, name, force)
+        if reason:
+            print("덮어쓰지 않음: " + reason)
+            return 2
+        os.replace(staged, dst)
+        staged = None
+    finally:
+        if staged is not None:
+            if staged.is_symlink():
+                staged.unlink()
+            elif staged.exists():
+                shutil.rmtree(staged)
+    if kind == "링크":
+        print(f"링크: {dst} -> {os.readlink(dst)}")
+    else:
+        print(f"복사: {dst} (sha256 목록 {MANIFEST}). 정본을 고치면 link 를 다시 돌린다")
+    if placeholder:
+        print("주의: git 이 추적하던 링크 자리(경로 문자열 파일)를 바꿨다. 이 경로의 변경은 커밋하지 않는다"
+              " (필요하면 git update-index --skip-worktree)")
     return 0
 
 
@@ -174,7 +196,7 @@ def main(argv):
         if cmd == "link":
             return link(repo, name, "--copy" in flags, "--force" in flags)
         return check(repo, name)
-    except ValueError as e:
+    except (ValueError, OSError) as e:
         print("거부: " + str(e))
         return 2
 
