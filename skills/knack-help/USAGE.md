@@ -17,6 +17,7 @@ knack 은 백엔드 개발용 개인 에이전트 하네스입니다. 에이전�
 | 새 기능 | "주문 취소 API 추가해줘" (요구사항·정책 문서가 있으면 함께) | `feature-implementation` | 경량은 없음 · 표준은 `.design/<slug>/PLAN.md` |
 | 버그 | "이 버그 고쳐줘", "이 에러 고쳐줘" + 스택트레이스·로그 | `bug-fix` | 경량은 없음 · 그 밖에는 `.design/bug-<slug>/BUGFIX.md` |
 | 빌드·테스트 검증 | "검증 돌려줘", "빌드·테스트 확인해줘" | `stack-verify` | 대화 보고(명령별 결과) |
+| 앱 동작 검증 스킬 | "검증 스킬 만들어줘", "verify 스킬 점검해줘" | `verification-skill` | `.agents/skills/verify-<앱>/`(+ `.claude/skills/` 링크), `EVIDENCE.md` |
 | 머지 전 리뷰 | "머지 전에 리뷰해줘" | `impl-review` | 대화 보고 · 고위험만 `.design/<slug>/REVIEW.md` |
 | 스킬·룰·훅 설치·관리 | "이 스킬 설치해줘", "훅 추가해줘", "하네스 업데이트해줘" | `knack-manage` | 하네스 레포 변경 |
 | 내 정보 등록 | "내 정보 등록해줘", "페르소나 수정해줘" (자기소개 파일이 있으면 함께) | `persona` | `persona/core.md`, `persona/detail/*.md` |
@@ -68,6 +69,11 @@ knack 은 백엔드 개발용 개인 에이전트 하네스입니다. 에이전�
 - `scripts/detect.py`가 Gradle·Maven·.NET 빌드 단위와 명령(포맷·컴파일·단일 테스트·전체 테스트·마이그레이션 도구)을 JSON으로 낸다. 근거 없는 명령은 만들지 않는다
 - 순서: 포맷 → 컴파일 → 단일 테스트 → 영향 테스트 → 린트 → 마이그레이션(로컬·Testcontainers만) → 머지 직전 전체 빌드
 - 돌리지 못한 단계는 "안 함"과 이유를 보고한다
+
+### verification-skill — 레포 전용 동작 검증 스킬
+- 생성: 레포에서 띄우기·준비 신호·조작·관찰 방법을 찾아 `verify-<앱>` 스킬과 기능 목록(`features/`)을 쓰고, 한 번 처음부터 끝까지 돌려 `EVIDENCE.md`에 기록합니다. 기록이 없으면 "미증명"입니다.
+- 점검: 링크·복사본 동기화(`scripts/link_skill.py check`), 기능별 소스 대조, 모든 기능 실제 실행 후 깨끗함·변경·막힘 중 하나로 보고합니다. 제품 코드는 고치지 않습니다.
+- 로컬·컨테이너 자원만 씁니다.
 
 ### impl-review — 독립 리뷰
 - 구현 맥락이 없는 리뷰어가 diff를 설계 문서, 레퍼런스 기능, 체크리스트와 대조합니다.

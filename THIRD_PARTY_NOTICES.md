@@ -12,6 +12,8 @@ knack는 아래 오픈소스 프로젝트의 아이디어를 한국어로 다시
 | 원문 경로 (pstack) | 반영한 knack 파일 | 반영한 아이디어 |
 |---|---|---|
 | `pstack/skills/blast-radius/SKILL.md` | `skills/impl-review/references/review-checklist.md`, `skills/impl-review/SKILL.md`, `skills/impl-review/templates/REVIEW.md`, `agents/impl-reviewer.md` | 증명 단계(1~5), 변경이 안전한 핵심 사실 하나를 찾아 증명, grep이 닿지 않는 영향 범위, 확인하고 제외한 위험 |
+| `pstack/skills/create-verification-skill/SKILL.md` | `skills/verification-skill/SKILL.md`, `skills/verification-skill/templates/verify-SKILL.md`, `skills/verification-skill/templates/feature.md`, `skills/verification-skill/templates/EVIDENCE.md` | 앱을 사용자처럼 띄우고 조작해 증명하는 레포 전용 스킬 생성, 레포에서 먼저 답 찾기, 띄우기·점검·조작·증거·정리 구성, 기능 목록, 넘기기 전 1회 실행 |
+| `pstack/skills/maintain-verification-skill/SKILL.md` | `skills/verification-skill/SKILL.md` | 기능별 소스 대조와 전 기능 실제 실행, 문서 표류·조작 결함·제품 결함 분류, 깨끗함·변경·막힘 결과 |
 | `pstack/skills/principle-prove-it-works/SKILL.md` | `skills/impl-review/SKILL.md` | 대리 지표가 아니라 실제 실행으로 확인, 다시 돌릴 수 있는 증명 기록 |
 
 ```
