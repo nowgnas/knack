@@ -28,7 +28,8 @@
 | 5 | Reproduced in the running app or against a local container |
 
 - A read-only reviewer usually stops at 2–3. That is fine; say where it stopped.
-- A 🔴 or 🟠 below level 4 is reported as **❔ 잠재 🔴/🟠** with the cheapest proof that decides it under **증명 요청** (command, expected result, how to judge). It counts as unresolved until someone runs it.
+- Findings that reading settles (a missing success criterion, a policy or design mismatch, a change outside the design scope, a convention deviation) are confirmed at level 2 and reported as 🔴/🟠 directly.
+- A 🔴 or 🟠 about runtime behavior below level 4 is reported as **❔ 잠재 🔴/🟠** with the cheapest proof that decides it under **증명 요청** (command, defect criterion). It counts as unresolved until someone runs it. If no safe command can decide it (production only, needs external systems), say so in the request; the user decides.
 - Never write a command or result you did not run as if you ran it.
 
 ## What to check
@@ -73,13 +74,13 @@
 
 ## Output format (Korean labels)
 ````
-## 리뷰 결과 — 🔴 n · 🟠 n · 🟡 n · ⚪ n · ❔ n (잠재 🔴/🟠 n)
+## 리뷰 결과 — 🔴 n · 🟠 n · 🟡 n · ⚪ n · ❔ 질문 n · 잠재 🔴/🟠 n
 검증 실행: <실행한 명령과 결과 / 실행 못 함(이유)>
-안전 근거: <이 변경이 안전한 핵심 사실 하나> · 증명:<1~5 / 미증명>
+안전 근거: <이 변경이 안전한 핵심 사실 하나> · 증명:<1~5 / 미증명> (문서만 바뀐 저위험 변경이면 "해당 없음")
 
 ### 🔴 Blocker
-1. [정확성] <한 줄 요약> — `path:line` · 증명:<4|5>
-   - 근거: <무엇이 왜 문제인지> · 실패 재현: <실행한 명령·입력 → 잘못된 결과나 예외, exit 코드>
+1. [정확성] <한 줄 요약> — `path:line` · 증명:<2(읽기로 확정되는 유형)|4|5>
+   - 근거: <무엇이 왜 문제인지> · 실패 재현: <실행한 명령·입력 → 잘못된 결과나 예외, exit 코드. 읽기로 확정되는 유형이면 대조한 기준 문서 위치>
    - 제안: <수정 방향>
 
 ### 🟠 Major
@@ -93,9 +94,9 @@
    - 근거: <지금까지 확인한 것>
 
 ### 증명 요청
-| # | 대상 | 명령 또는 테스트 | 기대 결과 | 판정 |
-|---|---|---|---|---|
-| 1 | 잠재 #1 | `<가장 싼 명령>` | <이 결과면 결함> | <exit·출력 기준> |
+| # | 대상 | 명령 또는 테스트 | 결함 판정 기준 |
+|---|---|---|---|
+| 1 | 잠재 #1 | `<가장 싼 명령 / 안전하게 돌릴 명령 없음(이유)>` | <exit·출력이 이렇면 결함, 이렇면 결함 아님> |
 
 ### 확인하고 제외한 위험
 - <위험> — <왜 괜찮은지> · 증명:<n>
@@ -120,5 +121,4 @@
 | 완료 게이트 | 해당 없음 / 이상 없음 / #n |
 ````
 
----
-_증명 단계·영향 범위 아이디어 출처: pstack (MIT, Lauren Tan, cursor/plugins@1ba91fc). knack 저장소 루트의 THIRD_PARTY_NOTICES.md 참고._
+<!-- 출처: pstack (MIT, Lauren Tan, cursor/plugins@1ba91fc) · THIRD_PARTY_NOTICES.md -->

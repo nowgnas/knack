@@ -3,7 +3,7 @@
 > 리뷰어: <impl-reviewer 서브에이전트 | codex exec | 자체 리뷰(독립 리뷰 아님)> · 범위: `<base>..<head>` · 일시: <YYYY-MM-DD> · 라운드: <1|2>
 
 ## 요약
-🔴 n · 🟠 n · 🟡 n · ⚪ n · ❔ n (잠재 🔴/🟠 n) — 반영 n / 보류 n / 반박 n
+🔴 n · 🟠 n · 🟡 n · ⚪ n · ❔ 질문 n · 잠재 🔴/🟠 n — 반영 n / 보류 n / 반박 n
 안전 근거: <핵심 사실> · 증명:<1~5 / 미증명>
 
 ## 지적 사항
@@ -12,9 +12,9 @@
 | 1 | 🔴 / 잠재 🟠 | 1~5 | 정확성 | | `path:line` | 반영 / 보류 / 반박 | 반영 위치 또는 이유·근거 |
 
 ## 증명 기록
-| # | 증명 | 실행 | commit | 작업트리 | 명령 | exit | 결과 |
-|---|---|---|---|---|---|---|---|
-| 1 | 4 | main / verifier | `abc1234` | clean / dirty | `<명령>` | 0 | 재현됨 → 🟠 / 재현 안 됨 → 반박 |
+| # | 증명 | 실행 | commit | 작업트리 | 명령 | exit | 출력 | 결과 |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 4 / 5 | main / verifier | `abc1234` | clean | `<명령>` (바꿨으면 원래 명령도) | 0 | <핵심 줄 또는 로그 위치> | 결함 → 🟠 / 결함 아님 → 반박 / 판정 불가 → 잠재 유지 / 사용자 결정 |
 
 ## 재리뷰 (있을 때)
 - 범위: 
@@ -23,4 +23,4 @@
 ## 남은 리스크
 - 
 
-<!-- 증명 단계 아이디어 출처: pstack (MIT, Lauren Tan, cursor/plugins@1ba91fc). knack 저장소의 THIRD_PARTY_NOTICES.md 참고 -->
+<!-- 출처: pstack (MIT, Lauren Tan, cursor/plugins@1ba91fc) · THIRD_PARTY_NOTICES.md -->
