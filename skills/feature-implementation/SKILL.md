@@ -26,7 +26,7 @@ description: 새 기능·동작 변경을 정책 점검 → 설계 승인 게이
 4. 설계: 표준이면 `templates/PLAN.md` → `.design/<slug>/PLAN.md`. `20-coding`의 사다리로 안 짜도 되는 길을 먼저 확인한다. 스키마가 바뀌면 `db-migration` 적용. 고위험이면 `templates/GATES.md`도
 5. 게이트 (아래)
 6. 구현: 레퍼런스와 같은 구조, `readable-code` 기준, 설계 밖 리팩토링 없음. 성공 기준 테스트는 먼저 실패를 확인하고 구현한다
-7. 검증: 빌드, 신규·영향 테스트, 린트·포맷터. 고위험이면 `knack gate run`
+7. 검증: 빌드, 신규·영향 테스트, 린트·포맷터. 명령은 `stack-verify`로 찾는다. 고위험이면 `knack gate run`
 8. 리뷰: 4단계 셀프 리뷰 후 `impl-review`로 독립 리뷰 (경량은 생략 가능). 결과는 대화와 `PLAN.md` 9절에 적는다
 9. 결과: `PLAN.md` 9절(검증·게이트·리뷰·후속)을 채우고 대화로 보고. 경량이면 대화 보고만
 
