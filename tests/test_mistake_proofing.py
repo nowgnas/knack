@@ -42,7 +42,36 @@ class Mistakes(unittest.TestCase):
         self.assertIn("mistake:missing-tx (2회", r.stdout)
         write(self.d, "docs/enforcement.md", "| `mistake:missing-tx` | 룰 | ArchUnit | cmd | 증명 |\n")
         self.assertEqual(run("check", self.d).returncode, 0)
-        self.assertIn("강제됨", run("list", self.d).stdout)
+        self.assertIn("증명됨", run("list", self.d).stdout)
+
+    def test_mention_or_incomplete_row_is_not_enforcement(self):
+        write(self.d, ".design/bug-a/BUGFIX.md", "mistake:missing-tx\n")
+        write(self.d, ".design/bug-b/BUGFIX.md", "mistake:Missing-Tx\n")  # 대소문자는 같은 태그
+        cases = [
+            "설명 문장 속 mistake:missing-tx 언급\n",
+            "| `mistake:missing-tx` | 룰 | ArchUnit | cmd | 미증명 |\n",
+            "| `mistake:missing-tx` | 룰 | ArchUnit | cmd | |\n",
+            "| `mistake:missing-tx` | <한 문장 룰> | ArchUnit | cmd | 증명 |\n",
+        ]
+        for doc in cases:
+            write(self.d, "docs/enforcement.md", doc)
+            self.assertEqual(run("check", self.d).returncode, 1, doc)
+        write(self.d, "docs/enforcement.md", "| `mistake:missing-tx` | 룰 | 강제 불가 — 설계 판단 | - | - |\n")
+        self.assertEqual(run("check", self.d).returncode, 0)
+
+    def test_encodings(self):
+        p = os.path.join(self.d, ".design", "bug-a", "BUGFIX.md")
+        os.makedirs(os.path.dirname(p))
+        with open(p, "wb") as f:
+            f.write("mistake:enc\n".encode("utf-16"))
+        write(self.d, ".design/bug-b/BUGFIX.md", "\ufeffmistake:enc\n")
+        r = run("check", self.d)
+        self.assertEqual(r.returncode, 1, r.stdout)  # UTF-16·BOM 파일의 태그도 센다
+        broken = os.path.join(self.d, ".design", "bug-c", "BUGFIX.md")
+        os.makedirs(os.path.dirname(broken))
+        with open(broken, "wb") as f:
+            f.write(b"mistake:enc \xff\xfa broken")  # 잘못된 UTF-8 은 숨기지 않고 exit 2
+        self.assertEqual(run("check", self.d).returncode, 2)
 
     def test_tag_boundaries_and_skipped_dirs(self):
         write(self.d, ".design/bug-a/BUGFIX.md", "mistake:abc\n")

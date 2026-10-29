@@ -18,7 +18,7 @@ overlaps: mattpocock-skills:diagnosing-bugs, engineering:debug
 6. 검증: 재현 테스트가 실패 → 통과, 수정을 되돌리면 다시 실패. 관련 테스트·빌드·린트(명령은 `stack-verify`). 고위험이면 `knack gate run`
 7. 영향 데이터: 잘못 저장된 데이터가 있으면 조회 쿼리와 보정 스크립트 **초안**만 만든다. 실행은 사람이 한다.
 8. 리뷰: 경량(1–3개 파일, 동작 변경 없음)이 아니면 `impl-review`
-9. 기록: 경량이면 대화 보고만. 그 밖에는 `templates/BUGFIX.md` → `.design/bug-<slug>/BUGFIX.md` 한 개(수정 계획과 결과를 같은 파일에). "재발 방지"에 `mistake:<slug>` 태그를 달고, 같은 태그가 이미 있으면 `mistake-proofing`
+9. 기록: 경량이면 대화 보고만(단, 실수의 종류가 분명하면 `mistake:<slug>` 한 줄짜리 `BUGFIX.md`는 남긴다). 그 밖에는 `templates/BUGFIX.md` → `.design/bug-<slug>/BUGFIX.md` 한 개(수정 계획과 결과를 같은 파일에). "재발 방지"에 `mistake:<slug>` 태그를 달고, 같은 태그가 이미 있으면 `mistake-proofing`
 
 ## 4. 수정 계획 게이트
 원인(근거), 재현 방법, 수정 방향, 영향 범위를 보고한다. 아래 중 하나라도 해당하면 **승인 후** 수정하고, 없으면 보고하고 바로 수정한다.
