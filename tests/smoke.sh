@@ -32,6 +32,7 @@ TOML_NOTE="${TOMLPY:+tomllib}"; TOML_NOTE="${TOML_NOTE:-tomllib 없음 — 문�
 
 echo "▶ 구조"
 check "모델 설치·doctor 회귀 테스트" 'python3 "$KNACK_DIR/tests/test_model_sync.py"'
+check "stack-verify detect.py 회귀 테스트 (Gradle·Maven·.NET 픽스처)" 'python3 "$KNACK_DIR/tests/test_stack_verify.py" 2>/dev/null'
 check "guard-prod-ops 훅 회귀 테스트 (Claude·Codex 형식, fail-closed)" 'python3 "$KNACK_DIR/tests/test_guard_prod.py" 2>/dev/null'
 for f in "$KNACK_DIR"/skills/*/SKILL.md; do
   d="$(dirname "$f")"; s="$(basename "$d")"

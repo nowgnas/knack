@@ -15,7 +15,7 @@ overlaps: mattpocock-skills:diagnosing-bugs, engineering:debug
 3. 원인 분석: 가설은 한 번에 하나씩 표로 좁히고, 여러 컴포넌트를 거치면 경계마다 증거를 모은다. 회귀면 git 이력·bisect. `path:line`으로 설명되면 확정한다.
 4. 수정 계획 게이트 (아래)
 5. 수정: 원인 지점을 최소 범위로. `readable-code` 기준, 스키마 변경이면 `db-migration`
-6. 검증: 재현 테스트가 실패 → 통과, 수정을 되돌리면 다시 실패. 관련 테스트·빌드·린트. 고위험이면 `knack gate run`
+6. 검증: 재현 테스트가 실패 → 통과, 수정을 되돌리면 다시 실패. 관련 테스트·빌드·린트(명령은 `stack-verify`). 고위험이면 `knack gate run`
 7. 영향 데이터: 잘못 저장된 데이터가 있으면 조회 쿼리와 보정 스크립트 **초안**만 만든다. 실행은 사람이 한다.
 8. 리뷰: 경량(1–3개 파일, 동작 변경 없음)이 아니면 `impl-review`
 9. 기록: 경량이면 대화 보고만. 그 밖에는 `templates/BUGFIX.md` → `.design/bug-<slug>/BUGFIX.md` 한 개(수정 계획과 결과를 같은 파일에)

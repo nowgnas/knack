@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- Add the `stack-verify` skill: `scripts/detect.py` finds Gradle, Maven and .NET build units and emits their format, compile, single-test, test and migration commands as JSON (`schema_version` 1) with the evidence files; the skill runs them fastest-first, checks migrations only against local or Testcontainers DBs, and reports each command's result.
 - Add the `guard-prod-ops` hook (Claude and Codex): it fails closed on migrations aimed at a non-local DB (`dotnet ef database update/drop`, Flyway, Liquibase, their Gradle and Maven plugins, Docker images) and on runs with a production environment or profile. Allowed targets are local hosts, Testcontainers, in-memory DBs, project SQLite files and hosts listed in `.knack/safe-db-hosts`. The shell parser shared with `guard-agent-config` moves to `hooks/_shared/shellparse.py`.
 - Add an on-demand Obsidian Daily rule with user-local vault and TODO configuration.
 - Add a generic Obsidian vault configuration template without personal paths or note content.
