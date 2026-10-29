@@ -175,11 +175,6 @@ echo "▶ 모델 라우팅 CLI"
 check "model: 작업·티어·모델·위임 표" 'grep -qE "^  git +standard +sonnet +\| +gpt-5\.6-sol/medium +→ git-ops" "$TMP/model.txt" && grep -qE "^  main +세션기본 +opus\[1m\]" "$TMP/model.txt"'
 check "model get (claude)" '[ "$("$H" model get git --agent claude)" = sonnet ]'
 check "model get --format flags (codex)" '[ "$("$H" model get implement --agent codex --format flags)" = "-m gpt-6-astra -c model_reasoning_effort=high" ]'
-check "which: 커밋·푸시 → git" '"$H" model which "변경사항 커밋하고 푸시해줘" | grep -q "작업 유형: git"'
-check "which: 구현 → implement" '"$H" model which "주문 취소 API 구현해줘" | grep -q "작업 유형: implement"'
-check "which: 동점이면 높은 티어 (PR 리뷰 → review)" '"$H" model which "PR 리뷰해줘" | grep -q "작업 유형: review"'
-check "which: 영어 키워드는 단어 경계 (print ≠ PR)" '! "$H" model which "print the prompt" | grep -q "작업 유형: git"'
-check "run auto → claude sonnet (dry-run)" '"$H" run auto --agent claude --dry-run -- "커밋해줘" 2>/dev/null | grep -q "^claude --model sonnet .*커밋해줘"'
 check "run implement → codex exec astra/high (dry-run)" '"$H" run implement --agent codex --print --dry-run -- "구현" 2>/dev/null | grep -q "^codex exec -m gpt-6-astra -c model_reasoning_effort=high "'
 check "run: 알 수 없는 작업은 실패" '! "$H" run nope --dry-run -- x >/dev/null 2>&1'
 
@@ -435,7 +430,7 @@ printf '# DB\nPostgres 15, 스키마 2개\n' | $PH persona import --detail db - 
 check "import --detail: 상세 저장 + 색인만 주입" '[ -f "$PREPO/persona/detail/db.md" ] && $PH persona-block | grep -q "필요할 때 읽는 상세.*: db" && ! $PH persona-block | grep -q "Postgres 15"'
 check "show <주제>: 상세 본문 출력" '$PH persona show db | grep -q "Postgres 15"'
 check "show: 없는 주제는 거부" '! $PH persona show nope 2>/dev/null'
-check "disable: 주입 끔 (bench 비교용)" '$PH persona disable > /dev/null; [ -z "$($PH persona-block)" ]'
+check "disable: 주입 끔" '$PH persona disable > /dev/null; [ -z "$($PH persona-block)" ]'
 check "enable: 주입 다시 켬" '$PH persona enable > /dev/null; [ -n "$($PH persona-block)" ]'
 check "core 가 길면 경고" 'for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16; do echo "k$i: v"; done | $PH persona import - | grep -q "권장 15줄"'
 printf 'role: 결제 백엔드\n' | $PH persona import - > /dev/null
@@ -563,109 +558,9 @@ UPSTREAM="$TMP/upstream.git"; git init -q --bare "$UPSTREAM" 2>/dev/null
 check "update: pull → 설치 → doctor 까지 이어진다" '"$CH" update --agents claude > "$TMP/update-full.txt" 2>&1; contains "$TMP/update-full.txt" "완료: 변경" && contains "$TMP/update-full.txt" "결과: 문제"'
 "$C/install.sh" --uninstall --agents claude,codex > /dev/null
 
-echo "▶ 사용량 집계 (knack usage)"
+echo "▶ 에이전트 실행 래퍼 (knack run)"
 HB="$KNACK_DIR/bin/knack"
-UP="$HOME/.claude/projects/-uproj"; mkdir -p "$UP/sess1/subagents" "$TMP/uproj"
-cat > "$UP/sess1.jsonl" <<EOF
-{"type":"user","timestamp":"2026-09-10T00:00:00Z","cwd":"$TMP/uproj","sessionId":"sess1","message":{"role":"user","content":"hi"}}
-{"type":"assistant","timestamp":"2026-09-10T00:00:01Z","cwd":"$TMP/uproj","sessionId":"sess1","message":{"id":"m1","model":"claude-opus-5","content":[{"type":"tool_use","name":"Skill","input":{"skill":"bug-fix"}}],"usage":{"input_tokens":10,"cache_creation_input_tokens":100,"cache_read_input_tokens":1000,"output_tokens":50}}}
-{"type":"assistant","timestamp":"2026-09-10T00:00:01Z","cwd":"$TMP/uproj","sessionId":"sess1","message":{"id":"m1","model":"claude-opus-5","content":[{"type":"text","text":"x"}],"usage":{"input_tokens":10,"cache_creation_input_tokens":100,"cache_read_input_tokens":1000,"output_tokens":50}}}
-{"type":"assistant","timestamp":"2026-09-10T00:00:05Z","cwd":"$TMP/uproj","sessionId":"sess1","message":{"id":"m2","model":"claude-opus-5","content":[{"type":"tool_use","name":"Agent","input":{"subagent_type":"git-ops"}}],"usage":{"input_tokens":5,"cache_creation_input_tokens":0,"cache_read_input_tokens":2000,"output_tokens":20}}}
-EOF
-cat > "$UP/sess1/subagents/agent-a.jsonl" <<EOF
-{"type":"assistant","timestamp":"2026-09-10T00:00:03Z","cwd":"$TMP/uproj","sessionId":"sess1","message":{"id":"s1","model":"claude-sonnet-5","content":[],"usage":{"input_tokens":1,"cache_creation_input_tokens":0,"cache_read_input_tokens":500,"output_tokens":5}}}
-EOF
-CR="$CODEX_HOME/sessions/2026/09/10"; mkdir -p "$CR"
-cat > "$CR/rollout-2026-09-10T01-00-00-th1.jsonl" <<EOF
-{"timestamp":"2026-09-10T01:00:00Z","type":"session_meta","payload":{"id":"th1","cwd":"$TMP/uproj","source":"cli"}}
-{"timestamp":"2026-09-10T01:00:01Z","type":"turn_context","payload":{"model":"gpt-5.6-sol","effort":"medium"}}
-{"timestamp":"2026-09-10T01:00:02Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":1000,"cached_input_tokens":800,"cache_write_input_tokens":0,"output_tokens":30,"reasoning_output_tokens":10}}}}
-{"timestamp":"2026-09-10T01:00:03Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":3000,"cached_input_tokens":2500,"cache_write_input_tokens":0,"output_tokens":90,"reasoning_output_tokens":20}}}}
-EOF
-"$HB" usage --since 2000-01-01 --json > "$TMP/usage.json"
-check "usage: Claude 중복 제거·스킬·서브에이전트 집계" 'python3 -c "
-import json; d=json.load(open(\"$TMP/usage.json\")); m=[s for s in d if s[\"agent\"]==\"claude\" and not s[\"subagent\"]][0]
-assert (m[\"input\"],m[\"cache_write\"],m[\"cache_read\"],m[\"output\"],m[\"calls\"])==(15,100,3000,70,2), m
-assert m[\"skills\"]=={\"bug-fix\":1} and m[\"subagents\"]=={\"git-ops\":1}
-sub=[s for s in d if s[\"subagent\"] and s[\"agent\"]==\"claude\"][0]; assert sub[\"parent\"]==\"sess1\" and sub[\"cache_read\"]==500"'
-check "usage: Codex 누적값·캐시 분리" 'python3 -c "
-import json; d=json.load(open(\"$TMP/usage.json\")); c=[s for s in d if s[\"agent\"]==\"codex\"][0]
-assert (c[\"input\"],c[\"cache_read\"],c[\"output\"],c[\"reasoning\"],c[\"calls\"])==(500,2500,90,20,2), c"'
-check "usage --by skill (텍스트)" '"$HB" usage --since 2000-01-01 --by skill | grep -q "bug-fix"'
-check "usage --cwd 필터" '[ "$("$HB" usage --since 2000-01-01 --cwd "$TMP/uproj" --json | python3 -c "import json,sys; print(len(json.load(sys.stdin)))")" = 3 ] && [ "$("$HB" usage --since 2000-01-01 --cwd /nonexistent --json | python3 -c "import json,sys; print(len(json.load(sys.stdin)))")" = 0 ]'
-check "usage: 정상 로그에서는 형식 경고 없음" '! "$HB" usage --since 2000-01-01 2>&1 | grep -q "토큰 기록을 하나도"'
-ZH="$TMP/zhome"; mkdir -p "$ZH/.claude/projects/-z"
-printf '%s\n' '{"type":"assistant","timestamp":"2026-09-10T00:00:00Z","sessionId":"z1","message":{"id":"m1","model":"claude-opus-5","content":[],"tokenUsage":{"input":10}}}' > "$ZH/.claude/projects/-z/z1.jsonl"
-HOME="$ZH" CODEX_HOME="$ZH/.codex" "$HB" usage --since 2000-01-01 > "$TMP/uz.txt" 2>&1
-check "usage: 로그는 읽혔는데 토큰 기록이 없으면 경고 (형식 변경 감지)" 'contains "$TMP/uz.txt" "claude 세션 로그 1개를 읽었지만 토큰 기록을 하나도 찾지 못했습니다"'
-
-echo "▶ 벤치 (knack bench)"
-"$INSTALL" --global --agents claude,codex > /dev/null   # baseline 비교를 위해 하네스를 다시 적용
-BR="$TMP/brepo"; mkdir -p "$BR"; (cd "$BR" && git init -q && echo a > a.txt && git add -A && git -c user.email=t@t -c user.name=t commit -qm init)
-cat > "$TMP/tasks.json" <<EOF
-{"repo": "$BR", "ref": "HEAD", "tasks": [
-  {"id": "t1", "type": "git", "prompt": "make out.txt", "check": "test -f out.txt"},
-  {"id": "t2", "type": "implement", "prompt": "noop", "check": "test -f nope.txt"}]}
-EOF
-cat > "$TMP/fakeclaude" <<'EOF'
-#!/usr/bin/env bash
-prompt=""; while [ $# -gt 0 ]; do case "$1" in -p|--print) prompt="$2"; shift ;; esac; shift; done
-echo "HEADROOM WRAP banner"
-echo "$HOME" >> "${SEEN_FILE:-/dev/null}"
-case "$prompt" in *out.txt*) echo x > out.txt ;; esac
-sid="fake-$$-$RANDOM"; d="$HOME/.claude/projects/-bench"; mkdir -p "$d"
-printf '{"type":"assistant","timestamp":"2026-09-12T00:00:00Z","cwd":"%s","sessionId":"%s","message":{"id":"b1","model":"claude-sonnet-5","content":[],"usage":{"input_tokens":7,"cache_creation_input_tokens":0,"cache_read_input_tokens":300,"output_tokens":11}}}\n' "$PWD" "$sid" > "$d/$sid.jsonl"
-printf '{"type":"result","subtype":"success","is_error":false,"num_turns":2,"session_id":"%s","total_cost_usd":0.01,"usage":{"input_tokens":1,"cache_creation_input_tokens":0,"cache_read_input_tokens":1,"output_tokens":1}}\n' "$sid"
-EOF
-cat > "$TMP/fakecodex" <<'EOF'
-#!/usr/bin/env bash
-echo x > out.txt
-echo '{"type":"thread.started","thread_id":"th-bench"}'
-echo '{"type":"turn.completed","usage":{"input_tokens":100,"cached_input_tokens":60,"output_tokens":7}}'
-EOF
-chmod +x "$TMP/fakeclaude" "$TMP/fakecodex"
-export KNACK_CLAUDE_BIN="$TMP/fakeclaude" KNACK_CODEX_BIN="$TMP/fakecodex" KNACK_BENCH_DIR="$TMP/bench"
-"$HB" bench run "$TMP/tasks.json" --label base --dry-run > "$TMP/bench-dry.txt"
-check "bench --dry-run: 작업 유형별 모델, 실행 없음" 'grep -q -- "--model sonnet" "$TMP/bench-dry.txt" && grep -q -- "--model opus" "$TMP/bench-dry.txt" && [ ! -d "$TMP/bench/results" ]'
-"$HB" bench run "$TMP/tasks.json" --label base > "$TMP/bench1.txt" 2>&1
-"$HB" bench run "$TMP/tasks.json" --label exp --repeat 2 > "$TMP/bench2.txt" 2>&1
-check "bench run: check 성공/실패·로그 기반 토큰·모델 기록" 'python3 -c "
-import json; rows=[json.loads(l) for l in open(\"$TMP/bench/results/base.jsonl\")]
-r={x[\"task\"]:x for x in rows}; assert r[\"t1\"][\"check_ok\"] is True and r[\"t2\"][\"check_ok\"] is False
-assert r[\"t1\"][\"tokens\"][\"source\"]==\"log\" and r[\"t1\"][\"tokens\"][\"cache_read\"]==300 and r[\"t1\"][\"turns\"]==2
-assert r[\"t1\"][\"model\"]==\"sonnet\" and r[\"t2\"][\"model\"]==\"opus\" and r[\"t1\"][\"mode\"]==\"current\" and r[\"t1\"][\"knack\"]==dict(claude=True, codex=True)"'
-check "bench run: repeat 반영" '[ "$(wc -l < "$TMP/bench/results/exp.jsonl" | tr -d " ")" = 4 ]'
-check "bench run: worktree 정리" '[ "$(git -C "$BR" worktree list | wc -l | tr -d " ")" = 1 ]'
-"$HB" bench compare base exp > "$TMP/bench-cmp.txt"
-check "bench compare: 작업별 비교표" 'grep -q "^t1 " "$TMP/bench-cmp.txt" && grep -q "^TOTAL " "$TMP/bench-cmp.txt" && contains "$TMP/bench-cmp.txt" "하네스 적용 상태가 같습니다"'
-check "bench list" '"$HB" bench list | grep -q "exp"'
-"$HB" bench run "$TMP/tasks.json" --label cx --agent codex --only t1 > /dev/null 2>&1
-check "bench codex: 스트림 토큰 (캐시 분리)" 'python3 -c "
-import json; r=json.loads(open(\"$TMP/bench/results/cx.jsonl\").readline())
-t=r[\"tokens\"]; assert (t[\"input\"],t[\"cache_read\"],t[\"output\"],t[\"source\"])==(40,60,7,\"stdout\")
-assert r[\"model\"]==\"gpt-5.6-sol\" and r[\"effort\"]==\"medium\" and r[\"check_ok\"] is True"'
-check "bench: 잘못된 label 거부" '! "$HB" bench run "$TMP/tasks.json" --label "../x" --dry-run >/dev/null 2>&1'
-"$HB" bench baseline > "$TMP/bl.txt"
-BH="$TMP/bench/baseline-home"
-check "baseline 미러: 하네스 스킬·서브에이전트 제외, 외부 것은 유지" '[ ! -e "$BH/.claude/skills/bug-fix" ] && [ -e "$BH/.claude/skills/my-ext" ] && [ ! -e "$BH/.agents/skills/bug-fix" ] && [ ! -e "$BH/.claude/agents/git-ops.md" ] && [ -f "$BH/.claude/agents/my-agent.md" ]'
-check "baseline 미러: 룰 블록·하네스 훅·Codex 역할 블록 제외, 나머지 설정 유지" '! contains "$BH/.claude/CLAUDE.md" "knack:start" && contains "$BH/.claude/CLAUDE.md" "@RTK.md" && ! contains "$BH/.claude/settings.json" "--knack-hook" && contains "$BH/.claude/settings.json" "PermissionRequest" && ! contains "$BH/.codex/config.toml" "[agents.git-ops]" && contains "$BH/.codex/config.toml" "[mcp_servers.cx]" && ! contains "$BH/.codex/AGENTS.md" "knack:start" && contains "$BH/.codex/AGENTS.md" "# existing codex rules" && ! contains "$BH/.codex/hooks.json" "--knack-hook" && contains "$BH/.codex/hooks.json" "echo hi" && [ ! -e "$BH/.codex/knack" ]'
-check "baseline 미러: 세션 로그·기타 항목은 원본 링크" '[ -L "$BH/.claude/projects" ] && [ -L "$BH/.claude.json" ] && [ -L "$BH/.codex/sessions" ] && [ -L "$BH/.local" ]'
-check "baseline 미러: 실제 전역 설정은 그대로" 'contains "$HOME/.claude/CLAUDE.md" "knack:start" && [ -L "$HOME/.claude/skills/bug-fix" ] && contains "$CODEX_HOME/config.toml" "[agents.git-ops]"'
-check "baseline 보고: 제외 항목 출력" 'contains "$TMP/bl.txt" "하네스 룰 블록 제외" && contains "$TMP/bl.txt" "하네스 훅"'
-export SEEN_FILE="$TMP/seen-home.txt"
-"$HB" bench run "$TMP/tasks.json" --label bl --baseline --only t1 > "$TMP/bench3.txt" 2>&1
-check "run --baseline: 미러 HOME 으로 실행, 상태·로그 토큰 기록" '[ "$(tail -1 "$SEEN_FILE")" = "$BH" ] && python3 -c "
-import json; r=json.loads(open(\"$TMP/bench/results/bl.jsonl\").readline())
-assert r[\"mode\"]==\"baseline\" and r[\"knack\"]==dict(claude=False, codex=False) and r[\"tokens\"][\"source\"]==\"log\" and r[\"check_ok\"] is True, r"'
-"$HB" bench ab "$TMP/tasks.json" --repeat 1 --prefix t > "$TMP/ab.txt" 2>&1
-check "ab: baseline → knack 연속 실행 후 비교" '[ -f "$TMP/bench/results/t-baseline.jsonl" ] && [ -f "$TMP/bench/results/t-knack.jsonl" ] && grep -q "^t1 " "$TMP/ab.txt" && contains "$TMP/ab.txt" "claude=off" && contains "$TMP/ab.txt" "claude=on" && ! contains "$TMP/ab.txt" "적용 상태가 같습니다"'
-check "ab --dry-run: 실행 계획만" '"$HB" bench ab "$TMP/tasks.json" --repeat 2 --prefix d --dry-run | grep -q "HOME=$BH" && [ ! -f "$TMP/bench/results/d-baseline.jsonl" ]'
-"$HB" bench init > /dev/null
-check "init 기본 위치 (~/.knack-bench/tasks.json)" '[ -f "$TMP/bench/tasks.json" ]'
-check "--agent-cmd: 래퍼 명령 앞에 붙이고 --print 사용" '"$HB" bench run "$TMP/tasks.json" --label w --only t1 --dry-run --agent-cmd "headroom wrap claude --" | grep -q "headroom wrap claude -- --print"'
 check "KNACK_CLAUDE_CMD 환경변수" 'KNACK_CLAUDE_CMD="mywrap claude --" "$HB" run git --agent claude --print --dry-run -- x 2>/dev/null | grep -q "^mywrap claude -- --model sonnet --print"'
-check "bench --help 예시 포함" '"$HB" bench --help | grep -q "knack bench ab --repeat 2"'
-unset KNACK_CLAUDE_BIN KNACK_CODEX_BIN KNACK_BENCH_DIR SEEN_FILE
 
 echo "▶ repo-scan: Spring 픽스처"
 S="$TMP/spring"; mkdir -p "$S/src/main/java/com/acme/order" "$S/src/main/resources/db/migration" "$S/src/test/java/com/acme"

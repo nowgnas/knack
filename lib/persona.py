@@ -224,5 +224,5 @@ def toggle(_a, h, on):
         DISABLED.unlink(missing_ok=True)
     else:
         PERSONA.mkdir(parents=True, exist_ok=True)
-        DISABLED.write_text("knack persona disable — bench 비교용으로 주입을 끕니다\n", encoding="utf-8")
+        DISABLED.write_text("knack persona disable — 주입을 끕니다\n", encoding="utf-8")
     print(f"페르소나 주입 {'켬' if on else '끔'} ({h.pretty(DISABLED)})\n반영: knack install")

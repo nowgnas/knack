@@ -17,7 +17,6 @@ import tempfile
 from datetime import date
 from pathlib import Path
 
-import usage as U
 
 KNACK = Path(__file__).resolve().parent.parent
 HOME = Path.home()
@@ -810,10 +809,7 @@ def cmd_add(a):
         ext = external_skills().get(name)
         if ext:
             print(f"  ⚠ 외부에 같은 이름: {', '.join(ext)} → 설치 시 SKIP. 교체: knack install --force")
-        if a.install:
-            subprocess.run([str(KNACK / "install.sh"), "--global"], check=False)
-        else:
-            print("다음: knack install --dry-run → knack install → 하네스 레포 커밋")
+        print("다음: knack install --dry-run → knack install → 하네스 레포 커밋")
     finally:
         if tmp:
             shutil.rmtree(tmp, ignore_errors=True)
@@ -1091,24 +1087,6 @@ def model_flags(agent, model, effort):
     return ["-m", model] + (["-c", f"model_reasoning_effort={effort}"] if effort else [])
 
 
-def keyword_hit(keyword, text):
-    if re.fullmatch(r"[A-Za-z0-9 _-]+", keyword):
-        return re.search(r"\b" + re.escape(keyword) + r"\b", text, re.I) is not None
-    return keyword.lower() in text.lower()
-
-
-def classify(cfg, text):
-    """키워드 매칭 수가 많은 작업. 동점이면 높은 티어(품질 우선)."""
-    best = None
-    for i, (name, t) in enumerate(cfg["tasks"].items()):
-        hits = sum(1 for k in t.get("keywords", []) if keyword_hit(k, text))
-        if hits:
-            key = (hits, TIER_RANK.get(t["tier"], 0), -i)
-            if best is None or key > best[0]:
-                best = (key, name)
-    return best[1] if best else None
-
-
 def task_agents():
     out = {}
     for g in knack_agents():
@@ -1364,7 +1342,7 @@ def cmd_model(a):
             print(f"\n로컬 오버라이드 적용 중: {pretty(MODELS_LOCAL)}")
         if skipped:
             print("설치되지 않아 건너뛴 후보: " + ", ".join(sorted(set(skipped))))
-        print("\n분류: knack model which \"<요청>\" · 조회: knack model get <작업> --agent claude|codex"
+        print("\n조회: knack model get <작업> --agent claude|codex"
               " · 변경: knack model set <작업|main|tier:이름> <티어|모델> [--agent] [--effort]")
     elif action == "get":
         model, effort = resolve_model(cfg, a.task, a.agent)
@@ -1374,17 +1352,6 @@ def cmd_model(a):
             print(" ".join(model_flags(a.agent, model, effort)))
         else:
             print(model)
-    elif action == "which":
-        task = classify(cfg, " ".join(a.text)) or "main"
-        print(f"작업 유형: {task}" + (" (키워드 없음 → 세션 기본 모델)" if task == "main" else f" · {cfg['tasks'][task]['desc']}"))
-        for agent in AGENTS_SUPPORTED:
-            print(f"  {agent:<6} {model_label(*resolve_model(cfg, task, agent))}")
-        if task_agents().get(task):
-            names, whens = task_agents()[task], agent_when()
-            print(f"  위임: {', '.join(names)}")
-            for n in names:
-                if whens.get(n):
-                    print(f"    조건: {whens[n]}")
     else:
         cmd_model_set(load_models(merge=False), a)
 
@@ -1430,7 +1397,7 @@ def cmd_model_set(cfg, a):
 def cmd_run(a):
     cfg = load_models()
     prompt = " ".join(a.prompt).strip()
-    task = (classify(cfg, prompt) or "main") if a.task == "auto" else a.task
+    task = a.task
     agent = a.agent or ("claude" if shutil.which("claude") else "codex")
     model, effort = resolve_model(cfg, task, agent)
     if not model:
@@ -1453,13 +1420,6 @@ def cmd_run(a):
         print(shlex.join(cmd))
         return
     os.execvp(cmd[0], cmd)
-
-
-def usage_weights():
-    merged = {agent: dict(w) for agent, w in U.DEFAULT_WEIGHTS.items()}
-    for agent, w in ((load_models(safe=True) or {}).get("usage_weights") or {}).items():
-        merged.setdefault(agent, {}).update(w)
-    return merged
 
 
 def cmd_persona_block(_a):
@@ -1643,7 +1603,6 @@ def main():
     s.add_argument("--name")
     s.add_argument("--subdir")
     s.add_argument("--replace", action="store_true")
-    s.add_argument("--install", action="store_true")
 
     s = sub.add_parser("adopt", help="에이전트 폴더의 외부 스킬을 하네스로 이동")
     s.add_argument("kind", choices=("skill",))
@@ -1668,15 +1627,13 @@ def main():
     s.add_argument("--dry-run", action="store_true")
     s.add_argument("--force", action="store_true")
 
-    s = sub.add_parser("model", help="작업 유형별 모델 조회·분류·변경")
+    s = sub.add_parser("model", help="작업 유형별 모델 조회·변경")
     msub = s.add_subparsers(dest="action")
     msub.add_parser("list")
     m = msub.add_parser("get")
     m.add_argument("task")
     m.add_argument("--agent", choices=AGENTS_SUPPORTED, default="claude")
     m.add_argument("--format", choices=("name", "flags", "json"), default="name")
-    m = msub.add_parser("which")
-    m.add_argument("text", nargs="+")
     m = msub.add_parser("set")
     m.add_argument("target", help="작업 유형, main, tier:<이름>")
     m.add_argument("value", help="티어(deep|standard|fast) 또는 모델 이름")
@@ -1684,7 +1641,7 @@ def main():
     m.add_argument("--effort", choices=EFFORTS)
 
     s = sub.add_parser("run", help="작업 유형에 맞는 모델로 에이전트 실행")
-    s.add_argument("task", help="작업 유형 또는 auto (프롬프트 키워드로 분류)")
+    s.add_argument("task", help="작업 유형 (models.json 의 tasks) 또는 main")
     s.add_argument("prompt", nargs="*")
     s.add_argument("--agent", choices=AGENTS_SUPPORTED)
     s.add_argument("--print", action="store_true", help="비대화 실행 (claude -p / codex exec)")
@@ -1702,60 +1659,6 @@ def main():
 
     s = sub.add_parser("models-index")
     s.add_argument("--agent", required=True, choices=AGENTS_SUPPORTED)
-
-    s = sub.add_parser("usage", help="세션 로그 기반 토큰 사용량")
-    s.add_argument("--agent", choices=("all", *AGENTS_SUPPORTED), default="all")
-    s.add_argument("--since", default="7d", help="7d, 12h, 2026-09-01")
-    g = s.add_mutually_exclusive_group()
-    g.add_argument("--cwd", help="이 경로 아래에서 실행된 세션만")
-    g.add_argument("--here", action="store_true", help="현재 디렉터리 아래 세션만")
-    s.add_argument("--session", help="세션 id (일부)")
-    s.add_argument("--by", choices=("session", "model", "day", "skill", "cwd"), default="session")
-    s.add_argument("--limit", type=int, default=20)
-    s.add_argument("--json", action="store_true")
-
-    s = sub.add_parser(
-        "bench", help="작업 세트를 조건별로 실행·비교", formatter_class=argparse.RawDescriptionHelpFormatter,
-        description="같은 작업 세트를 하네스 미적용(baseline)과 적용 조건으로 실행해 토큰·check 통과율·턴·시간을 비교한다.\n"
-                    "baseline 은 전역 설정을 건드리지 않고 하네스만 뺀 HOME 미러로 실행한다.",
-        epilog="예:\n  knack bench init                 # ~/.knack-bench/tasks.json 생성 후 repo·tasks 편집\n"
-               "  knack bench ab --repeat 2 --dry-run\n  knack bench ab --repeat 2        # baseline → knack → 비교표\n"
-               "  knack bench baseline             # baseline 에서 빠지는 항목 확인")
-    bsub = s.add_subparsers(dest="action", required=True)
-    b = bsub.add_parser("init", help="작업 파일 예시 생성")
-    b.add_argument("path", nargs="?", help="기본: ~/.knack-bench/tasks.json")
-    bsub.add_parser("baseline", help="하네스만 뺀 HOME 미러를 만들고 제외 항목 출력")
-
-    def bench_run_options(b):
-        b.add_argument("tasks", nargs="?", help="작업 파일 (기본: ~/.knack-bench/tasks.json)")
-        b.add_argument("--agent", choices=AGENTS_SUPPORTED, help="기본: 작업 파일의 agent, 없으면 claude")
-        b.add_argument("--repeat", type=int, default=1, help="작업별 반복 횟수")
-        b.add_argument("--only", help="작업 id 쉼표 목록")
-        b.add_argument("--keep", action="store_true", help="worktree 남기기")
-        b.add_argument("--dry-run", action="store_true", help="실행할 명령만 출력")
-        b.add_argument("--model", help="작업 유형 대신 고정 모델")
-        b.add_argument("--effort", choices=EFFORTS)
-        b.add_argument("--permission-mode", default="acceptEdits", help="Claude 권한 모드")
-        b.add_argument("--sandbox", default="workspace-write", help="Codex 샌드박스")
-        b.add_argument("--max-turns", type=int)
-        b.add_argument("--timeout", type=int, default=1800, help="작업당 에이전트 실행 제한(초)")
-        b.add_argument("--check-timeout", type=int, default=900)
-        b.add_argument("--agent-args", help="에이전트 CLI 에 넘길 추가 인자 (예: --agent-args='--allowedTools Bash')")
-        b.add_argument("--agent-cmd", help="에이전트 실행 명령 (예: --agent-cmd='headroom wrap claude --'). "
-                                           "기본: KNACK_CLAUDE_CMD/KNACK_CODEX_CMD 또는 PATH 의 claude/codex")
-
-    b = bsub.add_parser("run", help="한 조건 실행")
-    bench_run_options(b)
-    b.add_argument("--label", required=True, help="조건 이름 (예: baseline, knack)")
-    b.add_argument("--baseline", action="store_true", help="하네스만 뺀 HOME 미러로 실행 (전역 설정은 그대로)")
-    b = bsub.add_parser("ab", help="baseline(하네스 제외)과 knack(현재 설정)를 연달아 실행하고 비교")
-    bench_run_options(b)
-    b.add_argument("--prefix", help="결과 label 접두어 (기본: ab-<날짜시각>)")
-    b = bsub.add_parser("compare", help="두 조건 비교")
-    b.add_argument("a")
-    b.add_argument("b")
-    b.add_argument("--json", action="store_true")
-    bsub.add_parser("list", help="저장된 조건 목록")
 
     s = sub.add_parser("persona", help="사용자 페르소나 (지시 블록에 주입되는 사실)",
                        epilog="예:\n  knack persona init            # 템플릿 생성 후 채우기\n"
@@ -1777,7 +1680,7 @@ def main():
     x.add_argument("--detail", metavar="주제", help="core 대신 detail/<주제>.md 로 저장")
     psub.add_parser("check", help="형식·길이 점검 (문제가 있으면 1로 종료)")
     psub.add_parser("enable", help="주입 켜기")
-    psub.add_parser("disable", help="주입 끄기 (bench 비교용)")
+    psub.add_parser("disable", help="주입 끄기")
     psub.add_parser("path", help="파일 경로")
 
     sub.add_parser("persona-block")
@@ -1801,8 +1704,6 @@ def main():
     {"list": cmd_list, "show": cmd_show, "search": cmd_search, "doctor": cmd_doctor, "add": cmd_add,
      "adopt": cmd_adopt, "new": cmd_new, "hook": cmd_hook, "hooks-sync": cmd_hooks_sync,
      "model": cmd_model, "run": cmd_run, "models-sync": cmd_models_sync, "models-index": cmd_models_index,
-     "usage": lambda args: U.cmd_usage(args, usage_weights()),
-     "bench": lambda args: __import__("bench").cmd_bench(args, sys.modules[__name__]),
      "persona": lambda args: __import__("persona").cmd_persona(args, sys.modules[__name__]),
      "gate": lambda args: __import__("gate").cmd_gate(args),
      "persona-block": lambda args: cmd_persona_block(args)}[a.cmd](a)

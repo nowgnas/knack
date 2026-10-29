@@ -14,8 +14,7 @@ usage() {
   cat <<EOF
 사용법: knack <명령>
   조회   list [종류] [--all]  show <종류> <이름> [--toc|--section N]  search <키워드>  doctor  skills
-  모델   model [list|get|which|set]  run <작업|auto> [--agent] [--print] -- <프롬프트>
-  측정   usage [--since 7d] [--by session|model|day|skill|cwd]  bench <init|run|compare|list>
+  모델   model [list|get|set]  run <작업|main> [--agent] [--print] -- <프롬프트>
   게이트 gate <status|run|reverify> <GATES.md>
   페르소나 persona [show|init|set|import|check|enable|disable]
   관리   add skill <경로|URL>  new <skill|rule|hook> <이름>  adopt skill <이름>  hook <enable|disable> <이름>
@@ -37,7 +36,7 @@ case "$cmd" in
       cat "$KNACK_DIR/skills/knack-help/USAGE.md"
     fi ;;
   skills)    exec python3 "$PY" list skills "$@" ;;
-  list|show|search|doctor|add|adopt|new|hook|model|run|usage|bench|persona|gate)
+  list|show|search|doctor|add|adopt|new|hook|model|run|persona|gate)
              exec python3 "$PY" "$cmd" "$@" ;;
   status)    exec "$KNACK_DIR/install.sh" --status "$@" ;;
   install)   exec "$KNACK_DIR/install.sh" "$@" ;;
