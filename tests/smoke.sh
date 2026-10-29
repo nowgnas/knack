@@ -175,11 +175,6 @@ echo "▶ 모델 라우팅 CLI"
 check "model: 작업·티어·모델·위임 표" 'grep -qE "^  git +standard +sonnet +\| +gpt-5\.6-sol/medium +→ git-ops" "$TMP/model.txt" && grep -qE "^  main +세션기본 +opus\[1m\]" "$TMP/model.txt"'
 check "model get (claude)" '[ "$("$H" model get git --agent claude)" = sonnet ]'
 check "model get --format flags (codex)" '[ "$("$H" model get implement --agent codex --format flags)" = "-m gpt-6-astra -c model_reasoning_effort=high" ]'
-check "which: 커밋·푸시 → git" '"$H" model which "변경사항 커밋하고 푸시해줘" | grep -q "작업 유형: git"'
-check "which: 구현 → implement" '"$H" model which "주문 취소 API 구현해줘" | grep -q "작업 유형: implement"'
-check "which: 동점이면 높은 티어 (PR 리뷰 → review)" '"$H" model which "PR 리뷰해줘" | grep -q "작업 유형: review"'
-check "which: 영어 키워드는 단어 경계 (print ≠ PR)" '! "$H" model which "print the prompt" | grep -q "작업 유형: git"'
-check "run auto → claude sonnet (dry-run)" '"$H" run auto --agent claude --dry-run -- "커밋해줘" 2>/dev/null | grep -q "^claude --model sonnet .*커밋해줘"'
 check "run implement → codex exec astra/high (dry-run)" '"$H" run implement --agent codex --print --dry-run -- "구현" 2>/dev/null | grep -q "^codex exec -m gpt-6-astra -c model_reasoning_effort=high "'
 check "run: 알 수 없는 작업은 실패" '! "$H" run nope --dry-run -- x >/dev/null 2>&1'
 

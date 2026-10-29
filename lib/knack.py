@@ -1090,24 +1090,6 @@ def model_flags(agent, model, effort):
     return ["-m", model] + (["-c", f"model_reasoning_effort={effort}"] if effort else [])
 
 
-def keyword_hit(keyword, text):
-    if re.fullmatch(r"[A-Za-z0-9 _-]+", keyword):
-        return re.search(r"\b" + re.escape(keyword) + r"\b", text, re.I) is not None
-    return keyword.lower() in text.lower()
-
-
-def classify(cfg, text):
-    """키워드 매칭 수가 많은 작업. 동점이면 높은 티어(품질 우선)."""
-    best = None
-    for i, (name, t) in enumerate(cfg["tasks"].items()):
-        hits = sum(1 for k in t.get("keywords", []) if keyword_hit(k, text))
-        if hits:
-            key = (hits, TIER_RANK.get(t["tier"], 0), -i)
-            if best is None or key > best[0]:
-                best = (key, name)
-    return best[1] if best else None
-
-
 def task_agents():
     out = {}
     for g in knack_agents():
@@ -1363,7 +1345,7 @@ def cmd_model(a):
             print(f"\n로컬 오버라이드 적용 중: {pretty(MODELS_LOCAL)}")
         if skipped:
             print("설치되지 않아 건너뛴 후보: " + ", ".join(sorted(set(skipped))))
-        print("\n분류: knack model which \"<요청>\" · 조회: knack model get <작업> --agent claude|codex"
+        print("\n조회: knack model get <작업> --agent claude|codex"
               " · 변경: knack model set <작업|main|tier:이름> <티어|모델> [--agent] [--effort]")
     elif action == "get":
         model, effort = resolve_model(cfg, a.task, a.agent)
@@ -1373,17 +1355,6 @@ def cmd_model(a):
             print(" ".join(model_flags(a.agent, model, effort)))
         else:
             print(model)
-    elif action == "which":
-        task = classify(cfg, " ".join(a.text)) or "main"
-        print(f"작업 유형: {task}" + (" (키워드 없음 → 세션 기본 모델)" if task == "main" else f" · {cfg['tasks'][task]['desc']}"))
-        for agent in AGENTS_SUPPORTED:
-            print(f"  {agent:<6} {model_label(*resolve_model(cfg, task, agent))}")
-        if task_agents().get(task):
-            names, whens = task_agents()[task], agent_when()
-            print(f"  위임: {', '.join(names)}")
-            for n in names:
-                if whens.get(n):
-                    print(f"    조건: {whens[n]}")
     else:
         cmd_model_set(load_models(merge=False), a)
 
@@ -1429,7 +1400,7 @@ def cmd_model_set(cfg, a):
 def cmd_run(a):
     cfg = load_models()
     prompt = " ".join(a.prompt).strip()
-    task = (classify(cfg, prompt) or "main") if a.task == "auto" else a.task
+    task = a.task
     agent = a.agent or ("claude" if shutil.which("claude") else "codex")
     model, effort = resolve_model(cfg, task, agent)
     if not model:
@@ -1660,15 +1631,13 @@ def main():
     s.add_argument("--dry-run", action="store_true")
     s.add_argument("--force", action="store_true")
 
-    s = sub.add_parser("model", help="작업 유형별 모델 조회·분류·변경")
+    s = sub.add_parser("model", help="작업 유형별 모델 조회·변경")
     msub = s.add_subparsers(dest="action")
     msub.add_parser("list")
     m = msub.add_parser("get")
     m.add_argument("task")
     m.add_argument("--agent", choices=AGENTS_SUPPORTED, default="claude")
     m.add_argument("--format", choices=("name", "flags", "json"), default="name")
-    m = msub.add_parser("which")
-    m.add_argument("text", nargs="+")
     m = msub.add_parser("set")
     m.add_argument("target", help="작업 유형, main, tier:<이름>")
     m.add_argument("value", help="티어(deep|standard|fast) 또는 모델 이름")
@@ -1676,7 +1645,7 @@ def main():
     m.add_argument("--effort", choices=EFFORTS)
 
     s = sub.add_parser("run", help="작업 유형에 맞는 모델로 에이전트 실행")
-    s.add_argument("task", help="작업 유형 또는 auto (프롬프트 키워드로 분류)")
+    s.add_argument("task", help="작업 유형 (models.json 의 tasks) 또는 main")
     s.add_argument("prompt", nargs="*")
     s.add_argument("--agent", choices=AGENTS_SUPPORTED)
     s.add_argument("--print", action="store_true", help="비대화 실행 (claude -p / codex exec)")

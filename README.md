@@ -136,7 +136,7 @@ knack new skill my-skill | new rule team-style | new hook my-hook       # 뼈대
 knack adopt skill <이름>                                                # 외부 스킬을 하네스로 이동
 knack list plugins                                                      # Claude Code·데스크톱 앱 플러그인
 knack model set git haiku --agent claude                                # 작업 유형별 모델 변경 (적용은 knack install)
-knack run auto -- "<요청>"                                              # 요청에 맞는 모델로 새 세션 실행
+knack run implement -- "<요청>"                                         # 작업 유형에 맞는 모델로 새 세션 실행
 knack hook disable guard-agent-config                                   # 훅 끄기
 knack install --dry-run && knack install                                # 적용
 ```

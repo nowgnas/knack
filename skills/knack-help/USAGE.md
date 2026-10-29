@@ -133,7 +133,7 @@ knack 은 백엔드 개발용 개인 에이전트 하네스입니다. 에이전�
 | 지시 파일 블록 | "커밋·푸시·PR → `git-ops`에 위임" 같은 색인 몇 줄 | 동일 (`spawn_agent`로 위임) |
 
 - 커밋·푸시·PR은 `git-ops`, 탐색은 `repo-explorer`, 독립 리뷰는 `impl-reviewer`에 위임되고, 설계·구현은 세션 모델로 진행합니다.
-- 스크립트로 고르기: `knack model which "<요청>"`(키워드 분류), `knack model get <작업> --agent codex --format flags`, `knack run auto -- "<요청>"`(맞는 모델로 새 세션 실행).
+- 스크립트로 고르기: `knack model get <작업> --agent codex --format flags`, `knack run <작업> -- "<요청>"`(작업 유형에 맞는 모델로 새 세션 실행). 작업 유형은 `knack model list`로 확인합니다.
 - 바꾸기: `knack model set git haiku --agent claude`, `knack model set implement deep`, `knack model set main deep --agent codex` → `knack install`.
 - **PC마다 설치된 모델이 다를 때**: 모델을 후보 목록으로 적으면(`knack model set tier:deep "gpt-6-astra,gpt-6-sol" --agent codex --effort high`) 설치된 첫 모델을 씁니다. Codex는 `~/.codex/models_cache.json`으로 설치 여부를 확인하고, 지원하지 않는 effort는 떨굽니다. Claude 별칭(`opus`·`sonnet`·`haiku`)은 CLI가 풀어 주므로 확인 대상이 아닙니다.
 - 후보가 전부 없으면 `knack run`은 모델 플래그 없이 CLI 기본값으로 실행하고 알립니다. `knack doctor`도 경고합니다.
@@ -189,8 +189,8 @@ knack 은 백엔드 개발용 개인 에이전트 하네스입니다. 에이전�
 | `knack new <skill\|rule\|hook> <이름> [--always]` | 뼈대 생성 (룰은 기본 on-demand, 훅은 기본 꺼짐) |
 | `knack adopt skill <이름>` | 에이전트 폴더의 외부 스킬을 하네스로 이동 |
 | `knack hook <enable\|disable> <이름>` | 훅 켜기·끄기 (적용은 `knack install`) |
-| `knack model [list\|get <작업>\|which "<요청>"\|set …]` | 작업 유형별 모델 조회·분류·변경 |
-| `knack run <작업\|auto> [--agent claude\|codex] [--print] -- "<프롬프트>"` | 작업에 맞는 모델로 에이전트 실행 (`--dry-run`: 명령만 출력) |
+| `knack model [list\|get <작업>\|set …]` | 작업 유형별 모델 조회·변경 |
+| `knack run <작업\|main> [--agent claude\|codex] [--print] -- "<프롬프트>"` | 작업에 맞는 모델로 에이전트 실행 (`--dry-run`: 명령만 출력) |
 | `knack gate <status\|run\|reverify> <GATES.md>` | 완료 게이트: 상태만(실행 안 함) · 미충족만 실행 · 전부 재실행. 종료 0 ALL MET · 1 미충족·포기 · 2 형식 오류 |
 | `knack persona [show\|init\|set\|import\|check\|enable\|disable\|path]` | 사용자 페르소나 조회·수정 (`persona import -` 로 표준입력) |
 | `knack install [--dry-run] [--project <path>] [--agents claude,codex] [--force]` | 설치 (기본값: 글로벌) |
