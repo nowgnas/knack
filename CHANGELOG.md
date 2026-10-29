@@ -13,6 +13,9 @@
 - Add a ladder to the coding rule: stop at the first rung that works, and justify any new dependency or layer in the plan.
 - Add a stopping policy and a report order to the core rule: keep going when no user input is needed, and put decisions the user owns first.
 
+### Removed
+- Remove `knack bench` (`lib/bench.py`, `bench/`): the fixed baseline → knack order, the HOME mirror that still links most of the real HOME, and the `git worktree remove --force` path built from task IDs made its numbers hard to trust and its cleanup risky. Existing `~/.knack-bench/` (or `~/.harness-bench/`) folders are left alone; delete them by hand if no longer needed.
+
 ### Changed
 - Make the new-rule smoke test validate the path returned by `knack new rule` instead of assuming a fixed rule number.
 - Replace `DESIGN.md` + `SUMMARY.md` + `REVIEW.md` with a single `PLAN.md` that gains a result section after implementation; keep `GATES.md` and `REVIEW.md` for high-risk work only, and widen the lightweight tier so small changes write no file.

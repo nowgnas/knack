@@ -1,6 +1,6 @@
 ---
 name: knack-manage
-description: 스킬·룰·훅·서브에이전트·모델 라우팅을 하네스로 관리하고 벤치로 효과를 측정한다. "이 스킬 설치해줘", "하네스 업데이트", "하네스 벤치 돌려줘" 같은 요청에 사용.
+description: 스킬·룰·훅·서브에이전트·모델 라우팅을 하네스로 관리한다. "이 스킬 설치해줘", "하네스 업데이트" 같은 요청에 사용.
 ---
 
 # Harness Manage
@@ -20,7 +20,7 @@ description: 스킬·룰·훅·서브에이전트·모델 라우팅을 하네스
 | 키워드 | `knack search <키워드>` (`-l`: 파일별 개수만) |
 | 구조·작성 기준·설치 점검 | `knack doctor` |
 | 작업 유형별 모델 | `knack model` |
-| 토큰 사용량·비교 | `knack usage [--by session\|model\|skill]`, `knack bench compare <A> <B>` |
+| 토큰 사용량 | `knack usage [--by session\|model\|skill]` |
 
 ## 2. 요청별 절차
 | 요청 | 절차 |
@@ -31,7 +31,6 @@ description: 스킬·룰·훅·서브에이전트·모델 라우팅을 하네스
 | 외부 스킬 제거 | 가드 훅이 막으므로 직접 지우지 않는다. `knack list skills --all`로 대상·위치를 확인하고, 백업 후 삭제하는 명령을 사용자에게 안내한 뒤 `knack list --all`로 결과를 확인한다 |
 | 훅 켜기·끄기 | `knack hook enable\|disable <이름>` → 설치 단계로 |
 | 작업 유형별 모델 변경 | `knack model`로 현재 표 확인 → `knack model set <작업\|main\|tier:이름> <티어\|모델> [--agent] [--effort]` → 설치 단계로. 새 위임 대상이 필요하면 `agents/`에 `task:`를 가진 서브에이전트를 만든다 |
-| 하네스 벤치 ("벤치 돌려줘, repeat 2") | 1) `~/.knack-bench/tasks.json` 확인. 없으면 `knack bench init` 후 사용자와 repo·작업·check 명령을 채우고 내용을 확인받는다 2) `knack bench ab --repeat <N> --dry-run`으로 실행 계획(작업 × N × 2조건)을 보여준다 3) 실행: `knack bench ab --repeat <N>`. 오래 걸리므로 Claude는 백그라운드로 실행하고 끝나면 결과를 요약한다. Codex는 샌드박스 밖 작업이라 이 명령을 사용자에게 안내한다 4) 비교표에서 작업별 Δtok, 통과율, 턴을 요약한다. 하네스를 끄고 켤 필요 없다(baseline은 HOME 미러). 401 인증 실패가 나면 로그인은 사용자가 터미널에서 직접 하도록 안내한다 |
 | 룰 | always 룰은 매 세션 로드되므로 짧게 쓴다. 가끔 필요한 규칙은 on-demand 룰(`when:`에 읽을 시점)로 만든다 |
 | 플러그인·MCP | 하네스는 조회만 한다. 설치는 각 에이전트 명령으로 하되 사용자에게 알린다. 데스크톱 앱(Cowork) 플러그인은 앱 설정에서 켜고 끈다 |
 

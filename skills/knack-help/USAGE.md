@@ -158,30 +158,16 @@ knack 은 백엔드 개발용 개인 에이전트 하네스입니다. 에이전�
 - `persona/core.md`·`persona/detail/` 은 개인 정보라 `.gitignore` 에 있습니다. 레포에는 템플릿만 커밋됩니다.
 - 에이전트에게 "내 정보 등록해줘"라고 하면 `persona` 스킬이 원자료를 결정 형태로 정리해 저장합니다.
 - 레포의 실제 코드가 페르소나와 어긋나면 에이전트는 레포를 믿고 사용자에게 알립니다. 낡은 페르소나는 없는 것보다 나쁩니다.
-- 효과가 의심되면 측정합니다: `persona disable` → `bench run --label persona-off`, `persona enable` → `--label persona-on`, `bench compare`. 작업 세트에는 페르소나가 없으면 되묻을 작업을 넣습니다.
 
-## 토큰 사용량 측정과 비교
+## 토큰 사용량
 
 | 명령 | 용도 |
 |---|---|
 | `knack usage [--since 7d] [--agent claude\|codex] [--here] [--by session\|model\|day\|skill\|cwd]` | 두 에이전트의 세션 로그에서 토큰(입력·캐시 쓰기·캐시 읽기·출력)과 가중 환산값을 집계 |
-| `knack bench init` → `knack bench ab --repeat 2` | 같은 작업 세트를 baseline(하네스 제외)과 현재 설정으로 연달아 실행하고 토큰·check 통과율·턴·시간 비교표 출력 |
-| `knack bench run [--baseline] --label <조건>` · `knack bench compare <A> <B>` | 조건 하나씩 실행하고 원하는 두 조건 비교 |
 
 - weighted는 입력 토큰 기준 가중합입니다(캐시 읽기 0.1배, 출력 5~8배). 달러가 아닌 상대 비교용이며 `models.json`의 `usage_weights`에서 조정합니다.
-- 벤치는 작업마다 git worktree를 만들어 비대화 모드(`claude -p`, `codex exec`)로 실행하고 끝나면 정리합니다(`--keep`으로 보존).
-- 작업 파일 기본 위치는 `~/.knack-bench/tasks.json`입니다(`knack bench init`으로 생성).
-- baseline은 전역 설정을 건드리지 않고 `~/.knack-bench/baseline-home`의 HOME 미러로 실행합니다. 하네스 스킬·서브에이전트, 지시 파일의 knack 블록, 하네스 훅, Codex 역할 블록만 빠지고 인증·프록시 설정·캐시·세션 로그 폴더는 원본 링크입니다. 빠지는 항목은 `knack bench baseline`으로 확인합니다.
-- 에이전트에게 "하네스 벤치 돌려줘, repeat 2"라고 하면 `knack-manage` 절차로 작업 파일을 확인하고 `knack bench ab --repeat 2`를 실행합니다. 오래 걸리므로 Claude는 백그라운드로 실행하고, Codex는 샌드박스 밖 작업이라 명령을 안내합니다.
-- 앱 세션(에이전트가 CLI를 중첩 실행) 안에서 돌릴 때 주의할 점:
-  - 작업당 기본 타임아웃이 1800초라 포그라운드로는 세션 턴이 먼저 끊깁니다. `nohup knack bench ab --repeat 2 > ~/.knack-bench/ab.log 2>&1 &` 처럼 백그라운드로 돌리고 로그를 확인합니다.
-  - baseline 조건은 `CLAUDE_CONFIG_DIR` 를 떼고 실행하지만 현재 설정 조건은 세션의 환경변수를 그대로 물려받습니다. 앱이 `CLAUDE_CONFIG_DIR` 같은 변수를 설정해 두면 두 조건의 설정이 달라지니 `env | grep -i 'claude\|codex'` 로 먼저 확인합니다.
-  - 원격·웹 세션에서는 HOME 에 하네스 설치·CLI 로그인·대상 레포가 없어서 실행할 수 없습니다. 벤치는 로컬 머신에서 돌립니다.
-- 에이전트는 PATH의 `claude`/`codex` 바이너리로 실행됩니다(셸 함수·별칭은 적용되지 않음). headroom 같은 래퍼를 거치려면 `--agent-cmd 'headroom wrap claude --'` 또는 환경변수 `KNACK_CLAUDE_CMD`를 씁니다. `knack run`도 같은 환경변수를 따릅니다.
+- `knack run`의 에이전트는 PATH의 `claude`/`codex` 바이너리로 실행됩니다(셸 함수·별칭은 적용되지 않음). headroom 같은 래퍼를 거치려면 환경변수 `KNACK_CLAUDE_CMD`(예: `'headroom wrap claude --'`)를 씁니다.
 - 비대화 실행에는 CLI 로그인이 필요합니다. `401 authentication_error`가 나면 터미널에서 `claude`(또는 `codex`)를 실행해 로그인한 뒤 다시 시도합니다.
-- 모든 옵션: `knack bench --help`, `knack bench ab --help`
-- 비대화 모드에서는 설계 게이트에서 멈추므로 벤치 프롬프트에 "설계는 승인된 것으로 보고 진행"처럼 적습니다(`bench/tasks.example.json` 참고).
-- Claude는 기본 `--permission-mode acceptEdits`라 셸 명령이 막힐 수 있습니다. 테스트 실행이 필요하면 `--agent-args='--allowedTools Bash'`처럼 넘깁니다.
 
 ## 항상 적용되는 공통 규칙
 - 주장에는 근거(`path:line`)를 붙이고, 확인하지 못한 것은 `(추정)`으로 표시합니다.
@@ -216,7 +202,6 @@ knack 은 백엔드 개발용 개인 에이전트 하네스입니다. 에이전�
 | `knack gate <status\|run\|reverify> <GATES.md>` | 완료 게이트: 상태만(실행 안 함) · 미충족만 실행 · 전부 재실행. 종료 0 ALL MET · 1 미충족·포기 · 2 형식 오류 |
 | `knack persona [show\|init\|set\|import\|check\|enable\|disable\|path]` | 사용자 페르소나 조회·수정 (`persona import -` 로 표준입력) |
 | `knack usage [--since 7d] [--by session\|model\|day\|skill\|cwd] [--json]` | 세션 로그 기반 토큰 사용량 집계 |
-| `knack bench <init\|ab\|run [--baseline]\|compare\|list\|baseline>` | 작업 세트를 조건별로 실행·비교 (`knack bench --help`) |
 | `knack install [--dry-run] [--project <path>] [--agents claude,codex] [--force]` | 설치 (기본값: 글로벌) |
 | `knack reinstall [옵션]` | 제거 후 다시 설치. 설치 상태가 꼬였을 때, 또는 다른 클론으로 옮길 때 |
 | `knack status` / `knack update` / `knack uninstall` | 상태 / git pull → 재설치 → doctor / 제거 |
@@ -255,5 +240,4 @@ knack status                            # 어느 클론을 가리키는지 확�
 `~/.codex/harness/agents/`. 사용자가 직접 만든 설정·링크는 건드리지 않습니다.
 
 - 셸 설정의 `HARNESS_*` 환경변수는 당분간 그대로 동작합니다(`KNACK_*` 가 우선). 정리하는 편이 좋습니다.
-- 벤치 결과는 `~/.harness-bench` 만 있으면 그 폴더를 계속 씁니다. `~/.knack-bench` 로 옮기려면 직접 `mv` 하세요.
 - 레포 폴더 이름(`~/harness` → `~/knack`)과 GitHub 레포 이름은 사용자가 직접 바꿉니다. GitHub 은 옛 이름으로도 리다이렉트하므로 기존 remote 는 그대로 동작합니다.

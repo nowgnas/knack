@@ -54,16 +54,3 @@ core 는 매 세션 지시 블록에 주입되므로 짧아야 하고, 나머지
 에이전트가 확신을 갖고 틀린 작업을 하게 만든다.
 
 레포의 실제 코드가 페르소나와 다르면 **레포를 믿고** 사용자에게 알린다.
-
-## 효과를 의심할 때
-
-페르소나가 실제로 결과를 좋게 하는지는 측정할 수 있다.
-
-```bash
-knack persona disable && knack install && knack bench run --label persona-off
-knack persona enable  && knack install && knack bench run --label persona-on
-knack bench compare persona-off persona-on
-```
-
-작업 세트에는 **페르소나가 없으면 되묻거나 틀리게 추측할 작업**을 넣는다 (예: 스택을 명시하지 않은
-"엔드포인트 하나 추가해줘"). 어느 조건에서도 같은 답이 나오는 작업은 차이를 드러내지 못한다.

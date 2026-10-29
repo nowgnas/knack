@@ -55,7 +55,7 @@ knack help                      # 사용법
 | `persona` | 자기소개·배경을 에이전트가 쓰는 페르소나(결정 형태)로 정리 | "내 정보 등록해줘" |
 | `eli5` | 청중(나이·직무 등)에 맞춘 쉬운 설명. 외부 스킬([DreambigOu/ELI5](https://github.com/DreambigOu/ELI5), MIT)을 그대로 가져옴 | "이거 매니저한테 설명하려면" |
 | `ste-explain` | ASD-STE100(통제 영어) 문체 설명. `strict`·`80`·`ko` 세 모드 | "STE로 설명해줘" |
-| `knack-manage` | 스킬·룰·훅·서브에이전트·모델 라우팅 관리, 벤치 | "이 스킬 설치해줘", "하네스 벤치 돌려줘" |
+| `knack-manage` | 스킬·룰·훅·서브에이전트·모델 라우팅 관리 | "이 스킬 설치해줘", "하네스 업데이트해줘" |
 | `knack-help` | 사용법 안내 ([USAGE.md](skills/knack-help/USAGE.md)) | "하네스 사용법 알려줘" |
 
 ## 작업 규율
@@ -147,17 +147,14 @@ knack install --dry-run && knack install                                # 적용
 
 ```bash
 knack usage --since 7d --by skill                   # 스킬별 토큰 사용량 (Claude·Codex 세션 로그)
-knack bench init                                    # ~/.knack-bench/tasks.json 생성 → repo·작업 편집
-knack bench ab --repeat 2                           # baseline(하네스만 뺀 HOME 미러) → 현재 설정 → 비교표
-knack bench baseline                                # baseline 에서 빠지는 항목 확인
 ```
 
 ## 알려진 한계
 
 - 조회 규율(문서를 `--section`으로 잘라 읽기)은 룰로만 안내합니다. 에이전트가 파일을 통째로 읽어도 막거나 알리지 않습니다. `impl-reviewer`처럼 체크리스트를 통째로 읽는 것이 맞는 경우가 있어 강제하지 않습니다.
 - `guard-agent-config`는 판단할 수 없는 입력을 통과시킵니다(fail-open). 명령을 `;`·`&&`·`||`·`|`로 나누고 `cd`를 따라가며 조각마다 판정합니다. 쓰기 여부는 명령 이름(`cp`·`rm`·`tee`·`sed -i` 등)과 리다이렉트 대상으로만 보고, 따옴표 안과 히어독 본문은 데이터로 취급합니다 — 보호 경로를 읽거나 문서에 적는 작업은 막지 않습니다. 대신 경로를 변수에 담거나 스크립트 파일 안에서 쓰는 경우는 보지 못합니다.
-- 하네스의 효과(토큰·통과율)는 아직 측정 결과가 없습니다. `knack bench ab`로 잴 수 있습니다.
-  - 산출물 축소(`DESIGN`+`SUMMARY`+`REVIEW` → `PLAN` 하나)의 효과는 재지 않았습니다. 같은 작업을 이전 흐름과 비교하려면 `knack bench ab`를 씁니다.
+- 하네스의 효과(토큰·통과율)는 측정하지 않았습니다. 하네스 안의 A/B 벤치(`knack bench`)는 측정 설계를 신뢰하기 어려워 제거했습니다. 세션 로그 기반 측정은 하네스 밖의 별도 도구에서 다룹니다.
+  - 산출물 축소(`DESIGN`+`SUMMARY`+`REVIEW` → `PLAN` 하나)의 효과도 재지 않았습니다.
   - `repo-onboarding`·`trace-flow`도 실제 레포에서 쓴 적이 없습니다(`.onboarding/`이 생긴 적 없음). 낯선 레포에서 `knack scan` → `repo-onboarding quick`을 한 번 돌려보고 10관점과 `ONBOARDING.md` 분량이 과한지 판단합니다.
   - `knack gate`는 스모크 테스트 밖에서, 즉 실제 작업에서 쓴 적이 없습니다. 고위험 작업에서 한 번 써 비용을 본 뒤에 완료 선언을 기계로 막을지 정합니다(비차단 알림 → 그래도 부족하면 차단형 Stop 훅).
 
@@ -176,13 +173,11 @@ persona/                페르소나 템플릿 (core.md·detail/ 은 gitignore)
 templates/              사용자별 설정 양식 (예: obsidian-vault.local.yml.example. 실제 값은 레포 밖에 둠)
 lib/knack.py            조회·관리·훅·모델 동기화 (python3 표준 라이브러리)
 lib/usage.py            세션 로그 토큰 집계 (knack usage)
-lib/bench.py            작업 세트 조건별 실행·비교 (knack bench)
 lib/gate.py             완료 게이트 확인·실행·재검증 (knack gate)
 lib/persona.py          페르소나 조회·수정 (knack persona)
-bench/                  벤치 작업 예시
 bin/knack               CLI
 install.sh              설치/상태/제거
-tests/smoke.sh          임시 HOME에서 설치·조회·관리·훅·모델 라우팅·게이트·벤치 검증
+tests/smoke.sh          임시 HOME에서 설치·조회·관리·훅·모델 라우팅·게이트 검증
 .github/workflows/      push·PR 때 macOS(/bin/bash 3.2)·Ubuntu에서 smoke.sh 실행
 AGENTS.md               레포 작업 가이드 (CLAUDE.md 는 이를 import)
 CHANGELOG.md            변경 기록 (Unreleased 에 쌓음)
