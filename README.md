@@ -151,7 +151,7 @@ knack install --dry-run && knack install                                # 적용
 - `guard-prod-ops`는 실수 방지 장치이지 보안 경계가 아닙니다. 판단할 수 없는 셸 입력은 막고(fail-closed), 대상 DB는 명령에 명시된 것(`--connection`·`-url=`·`-D…url=`·인라인 환경변수)만 봅니다.
   - 대상 없이 실행하는 마이그레이션은 막고 로컬 대상 명령을 안내합니다. 통과하는 대상: `localhost`·`127.x`·`::1`·`host.docker.internal`·`(localdb)`·`.`, `jdbc:tc:`, 메모리 H2/HSQLDB/Derby, 프로젝트 안의 SQLite 파일, 프로젝트 `.knack/safe-db-hosts`에 한 줄씩 적은 호스트(정확히 일치, 와일드카드 없음). docker-compose 서비스 이름도 여기에 적어야 통과합니다.
   - 운영 환경·프로파일은 대상이 로컬이어도 막습니다. 끄려면 훅 프로세스 환경에 `KNACK_GUARD_PROD=off`를 두거나 `knack hook disable guard-prod-ops`. 명령 앞에 붙인 `KNACK_GUARD_PROD=off`는 무시합니다.
-  - 셸 스크립트는 2단계·256KB까지 열어 봅니다(주석 줄 제외). 넘거나 읽을 수 없거나, 같은 명령에서 만든 뒤 실행하면 막습니다. `eval`·`| sh`·명령 자리의 `$VAR`·`$( )` 안은 위험 단어가 있을 때만 막습니다. `kubectl exec … -- dotnet ef database update`처럼 컨테이너 안에서 돌리는 마이그레이션은 대상을 알 수 없어 막습니다.
+  - 셸 스크립트는 2단계·256KB까지 열어 봅니다(주석 줄 제외). 넘거나 읽을 수 없거나, 같은 명령에서 만든 뒤 실행하면 막습니다. `eval`·`| sh`·명령 자리의 `$VAR`는 위험 단어가 있을 때 막고, `flyway`·`liquibase`·`dotnet ef` 인자 안의 `$( )`는 늘 막습니다. 기록·검색 명령(`gh`·`git`·`echo`…)은 `$( )` 안에 위험 단어가 있을 때만 막습니다. `kubectl exec … -- sh -c 'dotnet ef database update'`처럼 컨테이너 안에서 돌리는 마이그레이션은 `localhost`라도 내 로컬 DB가 아니므로 막습니다.
   - 보지 못하는 것: Makefile·npm scripts·alias, PowerShell `Update-Database`, `appsettings*.json`·`flyway.conf`에만 적힌 대상, localhost로 연 SSH 터널 너머의 운영 DB, 앱 시작 시 자동 마이그레이션(Spring Flyway/Liquibase, EF `Migrate()`), `psql`·`sqlcmd`로 직접 실행하는 DDL. 훅이 시간 초과(10초)로 끝나면 에이전트가 명령을 그대로 실행할 수 있습니다.
 - 하네스의 효과(토큰·통과율)는 측정하지 않았습니다. 하네스 안의 A/B 벤치(`knack bench`)와 세션 로그 토큰 집계(`knack usage`)는 측정 결과를 신뢰하기 어려워 제거했습니다. 세션 로그 기반 측정은 하네스 밖의 별도 도구에서 다룹니다.
   - 산출물 축소(`DESIGN`+`SUMMARY`+`REVIEW` → `PLAN` 하나)의 효과도 재지 않았습니다.

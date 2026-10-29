@@ -14,6 +14,20 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOOK = os.path.join(ROOT, "hooks", "guard-prod-ops", "guard_prod.py")
 
 DENY = [
+    # 리뷰 2차: 인자 있는 래퍼 옵션, 컨테이너 안 셸·localhost
+    'timeout -k 5s 600 flyway migrate',
+    "kubectl exec api-0 -- bash -c 'flyway migrate'",
+    'kubectl exec api-0 -- flyway -url=jdbc:postgresql://localhost/app migrate',
+    'mvn -P dev,prod test',
+    'flyway $(cat args.txt)',
+    'docker run -v $(pwd)/sql:/flyway/sql flyway/flyway -url=jdbc:postgresql://localhost/app migrate',  # 치환 + 마이그레이션 단어 → 판단 불가
+    'SPRING_PROFILES_ACTIVE=$(cat .profile) java -jar app.jar',
+    'dotnet ef database $(echo update)',
+    'kubectl exec api-0 -- sh -c "dotnet ef database update"',
+    "docker exec -it api bash -lc 'flyway migrate'",
+    'bash -x gradlew flywayMigrate',
+    'timeout -s KILL 600 flyway migrate',
+    'sudo -u app flyway migrate',
     # dotnet ef
     'dotnet ef database update',
     'dotnet ef database update --connection "Server=prod-sql.corp;Database=app;User Id=sa;Password=x"',
@@ -79,6 +93,14 @@ DENY = [
 ]
 
 ALLOW = [
+    "mvn -P '!prod' test",
+    'mvn -P dev,-prod test',
+    'dotnet publish -o out && ./out/Api --environment Development',
+    './gradlew installDist && build/install/app/bin/app --spring.profiles.active=local',
+    'mkdir -p live && grep -P realtime x',
+    'mvn -Pdelivery test',
+    'dotnet build -p:Version=$(git describe)',
+    "kubectl exec -it api-0 -- sh -c 'ls; echo hi'",
     'dotnet test',
     'dotnet build && dotnet test --filter "FullyQualifiedName~OrderTests"',
     'dotnet ef migrations add AddOrderIndex',
@@ -115,7 +137,6 @@ ALLOW = [
     "git commit -m 'Add `flyway` config'",
     'rg liquibase $(git diff --name-only)',
     'gh pr create --title "flyway V3 추가" --body "$(cat <<EOF\n본문\nEOF\n)"',
-    'docker run -v $(pwd)/sql:/flyway/sql flyway/flyway -url=jdbc:postgresql://localhost/app migrate',
     'dotnet ef --project src/Api migrations add Init',
     '(cd db && flyway info)',
     'npm run build',

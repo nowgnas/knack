@@ -37,7 +37,7 @@ except Exception:  # 파서를 못 읽으면 판단할 수 없다 — 막는다
 SHELL_TOOLS = {"bash", "shell", "exec_command", "local_shell", "unified_exec", "container.exec"}
 # 이 단어가 있을 때만 파서 예외·동적 구문을 막는다(없으면 이 훅이 막을 명령이 아니다)
 STRONG = re.compile(r"(?i)database\s+(update|drop)|dotnet-ef|flyway|liquibase|_ENVIRONMENT|profiles[._]active"
-          r"|run\.profiles|--environment|activate-profiles|-P\s*[\w,]*(prod|prd|live|real)")
+          r"|run\.profiles|--environment|activate-profiles|(?-i:-P)\s*([\w-]*[,_.-])?(production|prod|prd|live|real)\d*\b")
 PROD_VARS = {"ASPNETCORE_ENVIRONMENT", "DOTNET_ENVIRONMENT", "SPRING_PROFILES_ACTIVE"}
 PROD_VALUES = {"prod", "production", "prd", "live", "real"}  # real: 국내 레포에서 흔한 운영 프로파일 이름
 TARGET_VARS = ("FLYWAY_URL", "SPRING_DATASOURCE_URL", "SPRING_FLYWAY_URL", "SPRING_LIQUIBASE_URL",
@@ -52,6 +52,10 @@ LIQUIBASE_RISK = {"update", "updatecount", "updatetotag", "updatetodate", "updat
                   "rollbackcount", "rollbacktodate", "rollbackonechangeset", "rollbackoneupdate", "dropall",
                   "changelogsync", "changelogsynctotag", "changelogsynccount", "releaselocks", "tag",
                   "marknextchangesetran", "clearchecksums", "executesql"}
+WRAPPER_OPTS = {"timeout": {"-k", "-s", "--kill-after", "--signal"}, "stdbuf": {"-i", "-o", "-e"},
+                "ionice": {"-c", "-n", "-p", "-P", "-u"}, "chronic": set(), "nohup": set(), "time": set(),
+                "exec": set(), "nice": {"-n"}, "sudo": {"-u", "-g", "-h", "-p", "-C", "-D", "-U", "-r", "-t"}}
+REMOTE = [0]  # kubectl/docker exec 안을 판정 중이면 1 이상
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", "[::1]", "host.docker.internal", ".", "(local)", "0.0.0.0"}
 MAX_SCRIPT = 256 * 1024
 MAX_DEPTH = 2
@@ -119,6 +123,8 @@ def norm_host(h):
 
 
 def is_local(host, cwd, safe):
+    if REMOTE[0]:
+        return False
     if (host in LOCAL_HOSTS or host == "(localdb)" or host.endswith(".localhost")
             or re.fullmatch(r"127(\.\d{1,3}){3}", host)):
         return True
@@ -237,9 +243,10 @@ def check_prod(env, args, name):
                 val = args[n + 1]
             elif a.startswith("--activate-profiles="):
                 val = a.split("=", 1)[1]
-            if val and prod_value(val.replace("!", "")):
+            active = ",".join(x for x in re.split(r"[,\s]+", (val or "").strip("'\"")) if x and x[0] not in "!-")
+            if active and prod_value(active):  # -P '!prod' · -P -prod 는 비활성화라 허용
                 raise Deny(f"운영 Maven 프로파일 {val}")
-        elif re.fullmatch(r"-P(prod|production|prd|live|real)\d*", a, re.I):
+        elif re.fullmatch(r"-P(?i:prod|production|prd|live|real)\d*", a):
             raise Deny(f"운영 프로파일 {a}")
 
 
@@ -276,7 +283,11 @@ def build_has_liquibase(cwd):
             break
         d = os.path.dirname(d)
     # 멀티모듈·included build(:db:update, -p db, build-logic/): 루트 아래 3단계까지
+    walked = 0
     for base, dirs, files in os.walk(root):
+        walked += 1
+        if walked > 400:  # $HOME 같은 큰 폴더: 끝까지 훑지 않고 판단 불가
+            return None
         dirs[:] = [x for x in dirs if not x.startswith(".") and x not in ("build", "node_modules", "out", "bin", "obj")]
         if base[len(root):].count(os.sep) >= 3:
             dirs[:] = []
@@ -287,7 +298,7 @@ def build_has_liquibase(cwd):
                     if "liquibase" in open(os.path.join(base, fn), encoding="utf-8", errors="replace").read().lower():
                         return True
                 except OSError:
-                    return None
+                    continue
     return False if seen else None
 
 
@@ -384,10 +395,11 @@ def check_command(cmd, cwd, env, depth=0, seen=None, script_dir=None):
         toks = [t.rstrip(")") if "(" not in t else t for t in toks]  # (서브셸 … 끝의 ")"
         toks = [t for t in toks if t and t != "}"]
         assigns, rest = split_prefix(toks)
-        while rest and os.path.basename(rest[0]) in ("timeout", "stdbuf", "ionice", "chronic"):
+        while rest and os.path.basename(rest[0]) in WRAPPER_OPTS:
+            takes = WRAPPER_OPTS[os.path.basename(rest[0])]
             rest = rest[1:]
             while rest and rest[0].startswith("-"):
-                rest = rest[1:]
+                rest = rest[2:] if rest[0] in takes else rest[1:]  # timeout -k 5s 600 …
             if rest and re.fullmatch(r"[\d.]+[smhd]?", rest[0]):  # timeout 600
                 rest = rest[1:]
             more, rest = split_prefix(rest)
@@ -416,26 +428,40 @@ def check_command(cmd, cwd, env, depth=0, seen=None, script_dir=None):
         dynamic = (name == "eval" or rest[0].startswith("$") or "$(" in seg or "`" in seg
                    or (name in SHELLS and sep == "|" and not any(a.startswith("-c") or not a.startswith("-") for a in args)))
         check_prod(local, args, name)
-        # 기록·검색 명령(gh·git·echo…)은 치환 안에 위험 단어가 있을 때만 동적 구문으로 본다
-        # 치환($( ), 백틱) 안에 위험 단어가 있을 때만 판단 불가로 본다. 작은따옴표 안은 치환이 아니다.
-        # 치환이 대상 자리에 오면(--connection "$(cat cs)") check_targets 가 해석 불가로 막는다
+        # 동적 구문 판정. 작은따옴표 안은 치환이 아니다.
+        # - flyway·liquibase·dotnet ef: 치환이 하나라도 있으면 판단 불가
+        # - 기록·검색 명령(gh·git·echo…): 치환 안에 위험 단어가 있을 때만
+        # - 그 밖(gradle·java·docker…): 조각 전체에 위험 단어가 있거나, 치환이 든 토큰이 프로파일·대상 자리일 때
         unq = re.sub(r"'[^']*'", "", seg)
         subs = " ".join(x for pair in re.findall(r"\$\(([^)]*)\)|`([^`]*)`", unq) for x in pair)
-        if dynamic and STRONG.search(cmd) and (name == "eval" or rest[0].startswith("$") or name in SHELLS
-                                               or STRONG.search(subs)):
+        has_sub = "$(" in unq or "`" in unq
+        if has_sub and (name in ("flyway", "liquibase", "dotnet-ef") or (name == "dotnet" and args[:1] == ["ef"])):
+            raise Deny("마이그레이션 명령 안의 명령 치환($( ), 백틱)은 판단할 수 없습니다")
+        sub_toks = [t for t in assigns + args if "$(" in t or "`" in t]
+        if name in DATA_CMDS:
+            risky = STRONG.search(subs)
+        else:
+            risky = STRONG.search(unq) or any(STRONG.search(t) or t.startswith(("-P", "-D")) for t in sub_toks)
+        if dynamic and (STRONG.search(cmd) or sub_toks) and (name == "eval" or rest[0].startswith("$")
+                                                           or (name in SHELLS and STRONG.search(cmd)) or risky):
             raise Deny("위험 명령과 함께 쓴 동적 구문(eval, $( ), 백틱, | sh)은 판단할 수 없습니다")
         if name in ("kubectl", "oc", "docker", "podman") and "exec" in args:  # 컨테이너 안 실행은 대상 불명 → 도구만 보고 판정
             tail = args[args.index("--") + 1:] if "--" in args else args[args.index("exec") + 1:]
-            for n, w in enumerate(tail):
-                if os.path.basename(w) in MIGRATION_TOOLS:
-                    check_prod(local, tail[n + 1:], os.path.basename(w))
-                    check_migration(os.path.basename(w), tail[n + 1:], local, cwd, set())
-                    break
+            REMOTE[0] += 1  # 컨테이너 안의 localhost 는 내 로컬 DB가 아니다
+            try:
+                for n, w in enumerate(tail):  # 컨테이너 옵션(-it, -n ns, 파드 이름)을 건너뛰고 셸·도구부터 다시 판정
+                    if os.path.basename(w) in MIGRATION_TOOLS or os.path.basename(w) in SHELLS:
+                        check_command(argv_to_cmd(tail[n:]), cwd, dict(local), depth + 1, seen)
+                        break
+            finally:
+                REMOTE[0] -= 1
             continue
         if name == "dotnet" and args[:2] == ["tool", "run"] and len(args) > 2:  # dotnet tool run dotnet-ef …
             name, args = args[2], args[3:]
-        if name in SHELLS and args and os.path.basename(args[0]) in WRAPPER_SCRIPTS:  # bash gradlew …
-            check_migration(os.path.basename(args[0]), args[1:], local, cwd, safe)
+        first = next((n for n, w in enumerate(args) if not w.startswith("-")), None)
+        if (name in SHELLS and first is not None and os.path.basename(args[first]) in WRAPPER_SCRIPTS
+                and not any(w.startswith("-") and "c" in w.lstrip("-") for w in args[:first])):  # bash -x gradlew …
+            check_migration(os.path.basename(args[first]), args[first + 1:], local, cwd, safe)
             continue
         if name in SHELLS or name == "source" or name == ".":
             inner = None
@@ -475,7 +501,12 @@ def check_script(path, cwd, env, depth, seen, script_dir=None, need_shebang=Fals
     cands = [os.path.join(cwd or os.getcwd(), path)] + ([os.path.join(script_dir, path)] if script_dir else [])
     full = next((os.path.realpath(c) for c in cands if os.path.isfile(c)), None)
     if not full:
-        if STRONG.search(whole or ""):  # cat > m.sh <<EOF … EOF; bash m.sh — 아직 없는 파일을 같은 명령에서 만든다
+        # cat > m.sh <<EOF … EOF; bash m.sh — 아직 없는 셸 스크립트를 같은 명령에서 쓰고 실행한다
+        shellish = not need_shebang or path.endswith((".sh", ".bash"))
+        bare = re.escape(re.sub(r"^\./", "", path))
+        written = re.search(r"(>>?|\btee(\s+-a)?|\b(cp|mv|install|ln)\b[^;&|\n]*)\s*['\"]?(\./)?" + bare + r"\b",
+                            whole or "")
+        if shellish and written and STRONG.search(whole or ""):
             raise Deny(f"같은 명령에서 만드는 스크립트는 검사할 수 없습니다: {path}")
         return not need_shebang  # 없는 파일은 실행되지 않는다
     if need_shebang and not full.endswith((".sh", ".bash")) and not is_shell_script(full, cwd):
