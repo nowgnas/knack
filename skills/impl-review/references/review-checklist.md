@@ -1,7 +1,7 @@
 # Implementation review checklist
 
 ## Principles
-- Report only what you verified in code. Every finding needs `path:line` and evidence. Put suspicions with no code evidence under ❔ questions; a 🔴 or 🟠 backed by code but not run goes under ❔ 잠재 🔴/🟠.
+- Report only what you verified in code. Every finding needs `path:line` and evidence. Put suspicions with no code evidence under ❔ questions; a runtime-behavior 🔴 or 🟠 backed by code but not run goes under ❔ 잠재 🔴/🟠 (findings settled by reading are confirmed at level 2).
 - Give every 🔴 and 🟠 a proof level (see "Proof levels"). A convincing writeup proves nothing by itself; prove the facts the finding rests on as far down the ladder as is cheap.
 - Don't stop at the diff. Read callers of changed code, the reference feature, and related tests.
 - Flag convention issues only when they differ from the repo's conventions or the reference feature, not from personal taste.
