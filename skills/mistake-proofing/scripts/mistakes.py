@@ -53,9 +53,14 @@ def collect(repo):
 
 def row_state(cells):
     """표 한 행의 상태: 증명됨 · 강제 불가 · 미완성(사유)."""
+    if len(cells) != 5:
+        return "미완성(열 개수가 5가 아님 — 칸 안의 | 는 \\| 로 적는다)"
     rule, means, cmd, proof = cells[1:5]
-    if "강제 불가" in means and rule and not PLACEHOLDER.match(rule):
-        return "강제 불가"
+    if "강제 불가" in means:
+        m = re.search(r"강제 불가\s*[—–-]+\s*(\S.*)", means)
+        if rule and not PLACEHOLDER.match(rule) and m and not PLACEHOLDER.match(m.group(1)):
+            return "강제 불가"
+        return "미완성(강제 불가 사유 없음)"
     for name, v in (("룰", rule), ("강제 수단", means), ("실행 명령", cmd), ("과거 실패 증명", proof)):
         if not v or PLACEHOLDER.match(v.strip("`")):
             return f"미완성({name} 비어 있음)"
@@ -74,7 +79,7 @@ def enforced(repo):
         line = line.strip()
         if not line.startswith("|"):
             continue
-        cells = [c.strip() for c in line.strip("|").split("|")]
+        cells = [c.strip() for c in re.split(r"(?<!\\)\|", line[1:-1] if line.endswith("|") else line[1:])]
         if len(cells) < 5:
             continue
         state = row_state(cells)

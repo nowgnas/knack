@@ -1,7 +1,7 @@
 # 실수 방지 강제 목록
 
 같은 실수가 두 번 난 것만 적는다. 행마다 강제 수단이 과거 실패를 실제로 잡는지 증명한다.
-`python3 <knack>/skills/mistake-proofing/scripts/mistakes.py check .`는 2회 이상 난 `mistake:<slug>` 태그가 이 표에 없으면 실패한다.
+`python3 <knack>/skills/mistake-proofing/scripts/mistakes.py check .`는 2회 이상 난 `mistake:<slug>` 태그에 증명된 행(또는 `강제 불가 — 사유`)이 없으면 실패한다. 미증명·빈 칸·`<...>` 행은 강제로 보지 않는다. 칸 안의 `|`는 `\|`로 적는다.
 
 | 태그 | 룰 | 강제 수단 | 실행 명령 | 과거 실패 증명 |
 |---|---|---|---|---|

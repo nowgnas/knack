@@ -52,12 +52,17 @@ class Mistakes(unittest.TestCase):
             "| `mistake:missing-tx` | 룰 | ArchUnit | cmd | 미증명 |\n",
             "| `mistake:missing-tx` | 룰 | ArchUnit | cmd | |\n",
             "| `mistake:missing-tx` | <한 문장 룰> | ArchUnit | cmd | 증명 |\n",
+            "| `mistake:missing-tx` | 룰 | 강제 불가 | | |\n",              # 사유 없는 강제 불가
+            "| `mistake:missing-tx` | 룰 | 강제 불가 — <사유> | | |\n",
+            "| `mistake:missing-tx` | 룰 | CI | a | b | |\n",            # 이스케이프 안 된 | 로 열이 밀림
         ]
         for doc in cases:
             write(self.d, "docs/enforcement.md", doc)
             self.assertEqual(run("check", self.d).returncode, 1, doc)
         write(self.d, "docs/enforcement.md", "| `mistake:missing-tx` | 룰 | 강제 불가 — 설계 판단 | - | - |\n")
         self.assertEqual(run("check", self.d).returncode, 0)
+        write(self.d, "docs/enforcement.md", "| `mistake:missing-tx` | 룰 | CI | `a \\| b` | exit 1 → 0 |\n")
+        self.assertEqual(run("check", self.d).returncode, 0)  # 칸 안의 \| 는 구분자가 아니다
 
     def test_encodings(self):
         p = os.path.join(self.d, ".design", "bug-a", "BUGFIX.md")
