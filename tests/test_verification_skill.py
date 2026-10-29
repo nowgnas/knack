@@ -141,6 +141,16 @@ class LinkSkill(unittest.TestCase):
         leftovers = [n for n in os.listdir(os.path.dirname(self.dst)) if n != NAME]
         self.assertEqual(leftovers, [])
 
+    def test_failed_manifest_leaves_no_staging_dir(self):
+        mod = load_module()
+        def fail(*a, **k):
+            raise OSError("disk full")
+        with unittest.mock.patch.object(mod, "write_manifest", fail), \
+                unittest.mock.patch("sys.stdout", new=io.StringIO()):
+            with self.assertRaises(OSError):
+                mod.link(self.d, NAME, copy=True)
+        self.assertEqual(os.listdir(os.path.dirname(self.dst)), [])
+
     def test_windows_placeholder_file_is_replaced(self):
         write(os.path.dirname(self.dst), NAME, "../../.agents/skills/" + NAME + "\n")
         r = run("check", self.d, NAME)

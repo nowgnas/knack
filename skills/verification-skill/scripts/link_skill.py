@@ -96,8 +96,12 @@ def remove_existing(src, dst, name, force):
 def stage_copy(src, parent, name):
     staged = Path(tempfile.mkdtemp(prefix=f".{name}.copy-", dir=parent))
     shutil.rmtree(staged)
-    shutil.copytree(src, staged)
-    write_manifest(src, staged)
+    try:
+        shutil.copytree(src, staged)
+        write_manifest(src, staged)
+    except BaseException:
+        shutil.rmtree(staged, ignore_errors=True)
+        raise
     return staged
 
 
@@ -129,7 +133,12 @@ def link(repo, name, copy=False, force=False):
         if reason:
             print("덮어쓰지 않음: " + reason)
             return 2
-        os.replace(staged, dst)
+        try:
+            os.replace(staged, dst)
+        except OSError:
+            print(f"교체 실패: 새 {kind}을 {staged} 에 남겼다 — 원인을 해결한 뒤 {dst} 로 옮긴다")
+            staged = None
+            raise
         staged = None
     finally:
         if staged is not None:
