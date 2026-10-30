@@ -6,16 +6,17 @@ description: 같은 실수가 두 번째로 나면 지시문을 더 쓰지 않�
 # Mistake Proofing
 
 같은 실수를 두 번 하면 문서가 아니라 구조가 막아야 한다. 같은 지시를 두 번째 쓰고 있다면 그 지시가 증상이다.
-상태 파일은 두지 않는다. 판정 근거는 레포의 `BUGFIX.md`에 붙은 `mistake:<slug>` 태그와 `docs/enforcement.md`뿐이다.
+판정 근거는 레포에 **커밋되는** `docs/mistakes.md`(발생 원장)와 `docs/enforcement.md`뿐이다. `.design/`의 `BUGFIX.md`는 커밋되지 않으므로 맥락용이고 세지 않는다.
 
 ## 1. 태그
-- `bug-fix` 9단계에서 `BUGFIX.md`의 "재발 방지"에 `실수 태그: mistake:<slug>`를 적는다. slug는 실수의 종류(예: `mistake:missing-tx-boundary`), 버그 이름이 아니다.
+- `bug-fix` 9단계에서 `docs/mistakes.md`에 한 줄을 추가한다(없으면 `templates/mistakes.md`로 만든다): `| 날짜 | mistake:<slug> | 한 줄 요약 | 버그 기록 |`. slug는 실수의 종류(예: `mistake:missing-tx-boundary`), 버그 이름이 아니다. 수정 커밋에 함께 넣는다.
+- `BUGFIX.md`를 쓰는 경우 "재발 방지"에도 같은 태그를 적어 맥락을 잇는다(세는 것은 원장뿐).
 - 비슷한 태그가 이미 있으면 새로 만들지 않고 그 태그를 쓴다. 목록: `python3 <이 스킬 폴더>/scripts/mistakes.py list <레포>`
 
 ## 2. 재발 판정
-- `mistakes.py list <레포>`: 태그별 횟수와 파일. **2회 이상**이면 이 스킬의 대상이다.
-- `mistakes.py check <레포>`: 2회 이상인 태그에 `docs/enforcement.md` 표의 증명된 행(또는 "강제 불가 — 사유")이 없으면 exit 1. CI에 넣을 수 있다.
-- 사용자가 "또 이러네"라고 정정한 것도 같은 신호다. 태그가 없으면 먼저 단다.
+- `mistakes.py list <레포>`: 태그별 횟수와 버그 기록. **2회 이상**이면 이 스킬의 대상이다.
+- `mistakes.py check <레포>`: 2회 이상인 태그에 `docs/enforcement.md` 표의 증명된 행(또는 "강제 불가 — 사유")이 없으면 exit 1. 원장이 커밋되므로 새로 clone한 CI에서도 같은 결과다. 원장 형식이 틀리면 exit 2.
+- 사용자가 "또 이러네"라고 정정한 것도 같은 신호다. 원장에 행이 없으면 먼저 추가한다.
 
 ## 3. 강제 수단 고르기 (위가 강하다)
 | 수단 | Spring Boot | .NET |
