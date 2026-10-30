@@ -74,7 +74,7 @@ knack 은 백엔드 개발용 개인 에이전트 하네스입니다. 에이전�
 - 레포에 `verify-<앱>` 스킬도 있으면 `stack-verify`(빌드·테스트)를 먼저, 통과한 뒤 `verify-<앱>`(띄워서 동작 확인)을 돌립니다
 
 ### mistake-proofing — 같은 실수를 구조로 막기
-- `bug-fix`가 레포의 `docs/mistakes.md`(커밋되는 원장)에 `mistake:<slug>`를 한 줄씩 추가하고, 같은 태그가 두 번 나오면 대상입니다. `scripts/mistakes.py list|check <레포>`로 판정합니다. 원장이 커밋되므로 어느 PC·clone에서 세어도 같은 횟수입니다(CI에서 돌리려면 CI가 knack 레포도 체크아웃). `.design/`의 `BUGFIX.md`는 세지 않고, 원장보다 많이 적힌 예전 태그만 "참고:"로 알립니다. `#12`·`PR #12`·PR 링크는 같은 기록으로 셉니다.
+- `bug-fix`가 레포의 `docs/mistakes.md`(커밋되는 원장)에 `mistake:<slug>`를 한 줄씩 추가하고, 같은 태그가 두 번 나오면 대상입니다. `scripts/mistakes.py list|check <레포>`로 판정합니다. 원장이 커밋되므로 어느 PC·clone에서 세어도 같은 횟수입니다(CI에서 돌리려면 CI가 knack 레포도 체크아웃). `.design/`의 `BUGFIX.md`는 세지 않고, 예전 형식 파일에만 있는 태그는 "참고:"로 이전을 알립니다. `#12`·`PR #12`·같은 레포의 PR 링크는 같은 기록으로 셉니다.
 - 타입·아키텍처 테스트(ArchUnit, NetArchTest)·분석기·테스트·CI 순으로 강제 수단을 고르고, 실패가 있던 코드에서 실제로 실패하는지 증명합니다(과거 커밋은 `git worktree add`로 따로 꺼냄). "강제 불가"는 실제 이유를 적어야 인정됩니다.
 - `docs/enforcement.md`에 태그·룰·강제 수단·실행 명령·과거 실패 증명을 적고, 같은 내용의 지시문은 사용자 확인 후 지웁니다.
 
