@@ -15,9 +15,9 @@ knack 은 백엔드 개발용 개인 에이전트 하네스입니다. 에이전�
 | API 동작 이해 | "POST /api/orders 흐름 따라가줘" | `trace-flow` | `.onboarding/flows/*.md` |
 | 자원 사용처 찾기 | "orders 테이블 쓰는 곳 전부 찾아줘" | `trace-flow` (역방향) | `.onboarding/usages/*.md` |
 | 새 기능 | "주문 취소 API 추가해줘" (요구사항·정책 문서가 있으면 함께) | `feature-implementation` | 경량은 없음 · 표준은 `.design/<slug>/PLAN.md` |
-| 버그 | "이 버그 고쳐줘", "이 에러 고쳐줘" + 스택트레이스·로그 | `bug-fix` | 경량은 없음 · 그 밖에는 `.design/bug-<slug>/BUGFIX.md` |
+| 버그 | "이 버그 고쳐줘", "이 에러 고쳐줘" + 스택트레이스·로그 | `bug-fix` | 경량은 `BUGFIX.md` 없음 · 그 밖에는 `.design/bug-<slug>/BUGFIX.md` · 실수 종류가 분명하면 레포의 `docs/mistakes.md` 한 줄(커밋) |
 | 빌드·테스트 검증 | "검증 돌려줘", "빌드·테스트 확인해줘" | `stack-verify` | 대화 보고(명령별 결과) |
-| 실수 재발 방지 | "이 실수 다시 안 나게 해줘" | `mistake-proofing` | `docs/enforcement.md` |
+| 실수 재발 방지 | "이 실수 다시 안 나게 해줘" | `mistake-proofing` | `docs/mistakes.md`(발생 원장) · `docs/enforcement.md` |
 | 앱 동작 검증 스킬 | "검증 스킬 만들어줘", "verify 스킬 점검해줘" | `verification-skill` | `.agents/skills/verify-<앱>/`(+ `.claude/skills/` 링크), `EVIDENCE.md` |
 | 머지 전 리뷰 | "머지 전에 리뷰해줘" | `impl-review` | 대화 보고 · 고위험만 `.design/<slug>/REVIEW.md` |
 | 스킬·룰·훅 설치·관리 | "이 스킬 설치해줘", "훅 추가해줘", "하네스 업데이트해줘" | `knack-manage` | 하네스 레포 변경 |
@@ -74,7 +74,7 @@ knack 은 백엔드 개발용 개인 에이전트 하네스입니다. 에이전�
 - 레포에 `verify-<앱>` 스킬도 있으면 `stack-verify`(빌드·테스트)를 먼저, 통과한 뒤 `verify-<앱>`(띄워서 동작 확인)을 돌립니다
 
 ### mistake-proofing — 같은 실수를 구조로 막기
-- `bug-fix` 기록의 `mistake:<slug>` 태그가 두 번 나오면 대상입니다. `scripts/mistakes.py list|check <레포>`로 판정합니다(상태 파일 없음).
+- `bug-fix`가 레포의 `docs/mistakes.md`(커밋되는 원장)에 `mistake:<slug>`를 한 줄씩 추가하고, 같은 태그가 두 번 나오면 대상입니다. `scripts/mistakes.py list|check <레포>`로 판정합니다. 원장이 커밋되므로 어느 PC·clone에서 세어도 같은 횟수입니다(CI에서 돌리려면 CI가 knack 레포도 체크아웃). `.design/`의 `BUGFIX.md`는 세지 않습니다.
 - 타입·아키텍처 테스트(ArchUnit, NetArchTest)·분석기·테스트·CI 순으로 강제 수단을 고르고, 실패가 있던 코드에서 실제로 실패하는지 증명합니다.
 - `docs/enforcement.md`에 태그·룰·강제 수단·실행 명령·과거 실패 증명을 적고, 같은 내용의 지시문은 사용자 확인 후 지웁니다.
 
@@ -199,6 +199,7 @@ knack 은 백엔드 개발용 개인 에이전트 하네스입니다. 에이전�
                <slug>/GATES.md, REVIEW.md — 고위험일 때만
                bug-<slug>/BUGFIX.md
 ```
+예외로 레포에 커밋하는 것: `docs/mistakes.md`(실수 발생 원장)·`docs/enforcement.md`(`mistake-proofing`), `.agents/skills/verify-<앱>/`(`verification-skill`).
 
 ## 터미널 명령 `knack`
 

@@ -18,7 +18,10 @@ overlaps: mattpocock-skills:diagnosing-bugs, engineering:debug
 6. 검증: 재현 테스트가 실패 → 통과, 수정을 되돌리면 다시 실패. 관련 테스트·빌드·린트(명령은 `stack-verify`). 레포에 `verify-<앱>` 스킬이 있으면 그다음 띄워서 증상이 사라졌는지 확인한다. 고위험이면 `knack gate run`
 7. 영향 데이터: 잘못 저장된 데이터가 있으면 조회 쿼리와 보정 스크립트 **초안**만 만든다. 실행은 사람이 한다.
 8. 리뷰: 경량(1–3개 파일, 동작 변경 없음)이 아니면 `impl-review`
-9. 기록: 경량이면 대화 보고만(단, 실수의 종류가 분명하면 `mistake:<slug>` 한 줄짜리 `BUGFIX.md`는 남긴다). 그 밖에는 `templates/BUGFIX.md` → `.design/bug-<slug>/BUGFIX.md` 한 개(수정 계획과 결과를 같은 파일에). "재발 방지"에 `mistake:<slug>` 태그를 달고, 같은 태그가 이미 있으면 `mistake-proofing`
+9. 기록:
+   - 실수의 종류가 분명하면 규모와 상관없이 레포의 `docs/mistakes.md`(커밋되는 발생 원장, 없으면 `../mistake-proofing/templates/mistakes.md`로 생성)에 `| 날짜 | mistake:<slug> | 한 줄 요약 | 버그 기록(PR·이슈, 없으면 bug-<slug>) |` 한 줄을 추가해 수정 커밋에 넣는다(파일을 처음 만들 때는 레포에 새 파일이 생기므로 사용자 확인). 같은 태그가 이미 있으면 `mistake-proofing`
+   - 경량이면 그 한 줄과 대화 보고만. `BUGFIX.md`는 만들지 않는다
+   - 그 밖에는 `templates/BUGFIX.md` → `.design/bug-<slug>/BUGFIX.md` 한 개(수정 계획과 결과를 같은 파일에, 커밋되지 않음). "재발 방지"에 같은 태그를 적는다
 
 ## 4. 수정 계획 게이트
 원인(근거), 재현 방법, 수정 방향, 영향 범위를 보고한다. 아래 중 하나라도 해당하면 **승인 후** 수정하고, 없으면 보고하고 바로 수정한다.
@@ -31,5 +34,5 @@ overlaps: mattpocock-skills:diagnosing-bugs, engineering:debug
 ## 진행 방식과 완료 기준
 - **묻지 않고 한다**: 재현 테스트 작성, 로컬 빌드·테스트 실행과 재실행, 로컬 DB·Testcontainers 사용.
 - **멈추고 묻는다**: 게이트 조건에 해당할 때, 수정 시도가 세 번 실패할 때(네 번째 대신 구조 문제로 보고 방향을 정한다), 운영 데이터·환경 접근이 필요할 때.
-- **완료** = 재현 테스트 실패 → 통과 + 관련 테스트·빌드·린트 통과 + 데이터 영향 확인 + (경량이 아니면) `BUGFIX.md` 작성. 고위험이면 보고 직전 `knack gate reverify`가 ALL MET(포기가 있으면 인계 보고).
+- **완료** = 재현 테스트 실패 → 통과 + 관련 테스트·빌드·린트 통과 + 데이터 영향 확인 + (경량이 아니면) `BUGFIX.md` 작성 + (실수 종류가 분명하면) `docs/mistakes.md` 한 줄. 고위험이면 보고 직전 `knack gate reverify`가 ALL MET(포기가 있으면 인계 보고).
 - 보고: 원인 한 줄, 수정(`path:line`), 검증 결과, 데이터 영향, 재발 방지 제안.
