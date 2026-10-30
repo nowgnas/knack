@@ -48,6 +48,7 @@ bug-fix 스킬의 세부 절차. `knack show ref bugfix-workflow --section <번�
 - 잘못 발행된 이벤트나 이미 실행된 외부 호출이 있었는지도 확인한다.
 
 ## 9. 기록
-경량(1–3개 파일, 동작 변경 없음)이면 파일을 만들지 않고 대화로만 보고한다.
+실수의 종류가 분명하면(규모와 무관) 레포의 `docs/mistakes.md`에 `| YYYY-MM-DD | mistake:<slug> | 한 줄 요약 | 버그 기록 |` 한 줄을 추가하고 수정 커밋에 넣는다. 파일이 없으면 `../mistake-proofing/templates/mistakes.md`로 만든다(이 스킬 폴더 기준). `.design/`와 달리 이 파일은 커밋한다 — 다른 PC·CI에서도 재발 횟수를 세기 위해서다.
+경량(1–3개 파일, 동작 변경 없음)이면 그 밖의 파일은 만들지 않고 대화로 보고한다.
 그 밖에는 `.design`이 없으면 `mkdir -p .design/bug-<slug> && printf '*\n' > .design/.gitignore`를 먼저 실행하고,
 `BUGFIX.md` 템플릿을 채워 저장한다 — 수정 계획과 결과를 같은 파일에 쓰고 요약 파일을 따로 만들지 않는다.

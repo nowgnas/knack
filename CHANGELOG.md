@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Changed
+- `mistake-proofing` now counts occurrences from a committed ledger, `docs/mistakes.md` (one row per occurrence: date, tag, summary, bug record), instead of `BUGFIX.md` files under the gitignored `.design/`, so a fresh clone or CI sees the same counts. `bug-fix` appends the row for any bug with a clear mistake kind, including lightweight fixes (which no longer create a `BUGFIX.md`). Malformed ledger rows exit 2.
+
 ### Added
 - Add the `mistake-proofing` skill: `bug-fix` records now carry a `mistake:<slug>` tag; `scripts/mistakes.py list|check` counts tags across `BUGFIX.md` files (no state file) and fails when a tag seen twice has no row in `docs/enforcement.md`. The skill picks the strongest enforcement (types, ArchUnit / NetArchTest, analyzers, tests, CI), proves it fails on the code that had the mistake, records rule · enforcement · command · proof, and removes the duplicated instruction. Ideas adapted from pstack (MIT); see `THIRD_PARTY_NOTICES.md`.
 - Add the `verification-skill` skill: it generates a repo-local `verify-<app>` skill (launch, doctor, drive, evidence, cleanup, a feature map) for Spring Boot and .NET apps from what the repo shows, runs it once end to end and records the run in `EVIDENCE.md` (otherwise it stays "unproven"), and audits an existing one (link or copy sync, per-feature source check, a live pass over every feature, outcome clean / changed / blocked). The canonical copy lives in `.agents/skills/`, `.claude/skills/` gets a relative symlink or a copy checked by sha256 (`scripts/link_skill.py`). Ideas adapted from pstack (MIT); see `THIRD_PARTY_NOTICES.md`.
