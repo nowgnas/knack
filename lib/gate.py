@@ -151,35 +151,49 @@ def find_root(path):
 
 
 GUARD_PROD = Path(__file__).resolve().parent.parent / "hooks" / "guard-prod-ops"
+GUARD_TIMEOUT = 30
 
 
 def guard_denies(cmd, cwd):
-    """CHECK 는 에이전트 셸 도구를 거치지 않으므로 guard-prod-ops 훅을 같은 입력으로 직접 부른다.
-    훅이 꺼져 있으면(hook.json enabled=false·KNACK_GUARD_PROD=off) 검사하지 않는다. 거부 사유 또는 None."""
+    """CHECK 는 에이전트 셸 도구를 거치지 않으므로 guard-prod-ops 훅을 같은 입력으로 직접 부른다. 거부 사유 또는 None.
+    끄는 방법은 레포 hook.json 의 "enabled": false(knack hook disable) 하나다 — 즉시 따른다.
+    KNACK_GUARD_PROD 는 훅에 넘기지 않는다: `KNACK_GUARD_PROD=off knack gate run` 처럼 명령 앞에 붙여 우회하지 못하게.
+    판단할 수 없으면(설정 누락·손상, 훅 비정상 종료·시간 초과, 알 수 없는 출력) 막는다."""
     try:
-        if not json.loads((GUARD_PROD / "hook.json").read_text(encoding="utf-8")).get("enabled", True):
-            return None
-    except FileNotFoundError:
-        return None
+        spec = json.loads((GUARD_PROD / "hook.json").read_text(encoding="utf-8"))
     except (OSError, ValueError) as e:
-        return f"guard-prod-ops 설정을 읽지 못함 ({e})"
+        return f"guard-prod-ops 설정(hook.json)을 읽지 못함 ({type(e).__name__})"
+    if not isinstance(spec, dict) or not isinstance(spec.get("enabled", True), bool):
+        return "guard-prod-ops 설정(hook.json) 형식이 틀림 — enabled 는 true/false"
+    if spec.get("enabled", True) is False:
+        return None
     payload = json.dumps({"hook_event_name": "PreToolUse", "tool_name": "Bash",
                           "tool_input": {"command": cmd}, "cwd": str(cwd)}, ensure_ascii=False)
+    env = {k: v for k, v in os.environ.items() if k != "KNACK_GUARD_PROD"}
     try:
         p = subprocess.run([sys.executable, str(GUARD_PROD / "guard_prod.py")], input=payload.encode("utf-8"),
-                           capture_output=True, timeout=30)
-    except (OSError, subprocess.TimeoutExpired) as e:
+                           capture_output=True, timeout=GUARD_TIMEOUT, env=env)
+    except subprocess.TimeoutExpired:
+        return f"guard-prod-ops 검사가 {GUARD_TIMEOUT}초 안에 끝나지 않음"
+    except OSError as e:
         return f"guard-prod-ops 검사를 실행하지 못함 ({type(e).__name__})"
+    if p.returncode != 0:
+        err = p.stderr.decode("utf-8", "replace").strip().splitlines()
+        return f"guard-prod-ops 검사가 실패함 (exit {p.returncode}{': ' + err[-1] if err else ''})"
     out = p.stdout.decode("utf-8", "replace").strip()
     if not out:
-        return None
+        return None  # 훅 규약: 정상 종료 + 빈 출력 = 허용
     try:
         decision = json.loads(out)["hookSpecificOutput"]
+        verdict = decision["permissionDecision"]
     except (ValueError, KeyError, TypeError):
         return "guard-prod-ops 출력을 해석하지 못함"
-    if decision.get("permissionDecision") == "deny":
-        return decision.get("permissionDecisionReason") or "guard-prod-ops 가 막음"
-    return None
+    if verdict == "allow":
+        return None
+    if verdict == "deny":
+        reason = decision.get("permissionDecisionReason")
+        return reason if isinstance(reason, str) and reason else "guard-prod-ops 가 막음"
+    return f"guard-prod-ops 가 알 수 없는 결정을 냄 ({verdict!r})"
 
 
 def run_gate(gate, root, timeout):
