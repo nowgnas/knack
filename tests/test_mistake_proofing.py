@@ -172,6 +172,12 @@ class Mistakes(unittest.TestCase):
             self.assertIn("mistake:a\t1회", run("list", self.d).stdout, other)
         self.ledger(row("a", "#12"), row("a", "PR #13"))
         self.assertIn("mistake:a\t2회", run("list", self.d).stdout)
+        # 다른 레포의 같은 번호는 다른 기록, 레포가 섞이면 #12 를 어느 쪽과도 합치지 않는다
+        self.ledger(row("a", "https://github.com/o/r/pull/12"), row("a", "https://github.com/o/tracker/issues/12"))
+        self.assertIn("mistake:a\t2회", run("list", self.d).stdout)
+        self.ledger(row("a", "https://github.com/o/r/pull/12"), row("a", "https://github.com/o/tracker/issues/12"),
+                    row("a", "#12"))
+        self.assertIn("mistake:a\t3회", run("list", self.d).stdout)
         self.ledger(row("a", "bug-npe-2026-10-01"), row("a", "bug-npe-2026-10-20"))
         self.assertIn("mistake:a\t2회", run("list", self.d).stdout)
 
@@ -184,11 +190,16 @@ class Mistakes(unittest.TestCase):
             r = run(cmd, self.d)
             self.assertEqual(r.returncode, 0, r.stdout)  # 안내만, 세지 않는다
             self.assertIn("참고: mistake:old-tag", r.stdout)
-            self.assertIn("원장에는 1회", r.stdout)
+            self.assertIn("2곳(bug-a, bug-b)", r.stdout)
+            self.assertIn("원장 1회", r.stdout)
             self.assertNotIn("<slug>", r.stdout)
-        self.ledger(row("old-tag", "#1"), row("old-tag", "#2"))
-        write(self.d, "docs/enforcement.md", "| `mistake:old-tag` | 룰 | CI | `make` | exit 1 → 0 |\n")
-        self.assertNotIn("참고:", run("check", self.d).stdout)  # 원장이 따라잡으면 조용하다
+        write(self.d, ".design/bug-a/BUGFIX.md", "실수 태그: `mistake:old-tag`\ndocs/mistakes.md 로 옮김\n")
+        write(self.d, ".design/bug-b/BUGFIX.md", "- 실수 태그: `mistake:old-tag`. 레포의 `docs/mistakes.md`에도 한 줄 추가했다: 예\n")
+        self.assertNotIn("참고:", run("check", self.d).stdout)  # 옮겼다고 적은 파일·새 형식 파일은 조용하다
+        write(self.d, ".design/bug-a/BUGFIX.md", "실수 태그: `mistake:old-tag`\n")
+        r = run("check", self.d)
+        self.assertIn("1곳(bug-a)", r.stdout)  # 예전 1곳 + 원장 1회(실제로는 재발)도 알린다
+        self.assertEqual(r.returncode, 0)
 
     def test_unreadable_bugfix_is_a_note_not_failure(self):
         p = os.path.join(self.d, ".design", "bug-a", "BUGFIX.md")
@@ -202,7 +213,7 @@ class Mistakes(unittest.TestCase):
     def test_cannot_enforce_needs_real_reason(self):
         self.ledger(row("missing-tx", "#1"), row("missing-tx", "#2"))
         for means in ("강제 불가 — 사유", "강제 불가 — `사유`", "강제 불가 — <사유> 때문", "강제 불가 - 설계 <이유>",
-                      "강제 불가 — -"):
+                      "강제 불가 — -", "강제 불가 — 설계 `<이유>` 판단", "강제 불가 — `<reason>`"):
             write(self.d, "docs/enforcement.md", f"| `mistake:missing-tx` | 룰 | {means} | | |\n")
             r = run("check", self.d)
             self.assertEqual(r.returncode, 1, means)
@@ -211,6 +222,16 @@ class Mistakes(unittest.TestCase):
         self.assertEqual(run("check", self.d).returncode, 1)  # 룰 칸에 남은 자리표시자
         write(self.d, "docs/enforcement.md", "| `mistake:missing-tx` | 룰 | 강제 불가 — `List<T>` 경계는 리뷰 판단 | | |\n")
         self.assertEqual(run("check", self.d).returncode, 0)  # 코드 안의 <T> 는 자리표시자가 아니다
+        write(self.d, "docs/enforcement.md", "| `mistake:missing-tx` | 룰 | 강제 불가 — 설계 판단<br>리뷰에서 확인 | | |\n")
+        self.assertEqual(run("check", self.d).returncode, 0)  # 표 칸 줄바꿈 <br>
+        write(self.d, "docs/enforcement.md", "| `mistake:missing-tx` | <룰> 정리 | ArchUnit | `make` | exit 1 → 0 |\n")
+        r = run("check", self.d)
+        self.assertEqual(r.returncode, 1)  # 일반 행도 자리표시자가 남으면 미완성
+        self.assertIn("자리표시자 남음", r.stdout)
+        write(self.d, "docs/enforcement.md", "| `mistake:missing-tx` | 룰 | ArchUnit | `make` | abc 에서 exit 1 \"<출력 한 줄>\" |\n")
+        self.assertEqual(run("check", self.d).returncode, 1)
+        write(self.d, "docs/enforcement.md", "| `mistake:missing-tx` | 룰 | ArchUnit | `grep -c 'Map<String, Tx>' src` | exit 1 → 0 |\n")
+        self.assertEqual(run("check", self.d).returncode, 0)
 
     def test_utf16_enforcement(self):
         self.ledger(row("enc", "#1"), row("enc", "#2"))
