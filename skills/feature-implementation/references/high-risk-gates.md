@@ -35,6 +35,7 @@ unlazy(https://github.com/Leonxlnx/unlazy, MIT)의 게이트 형식과 규칙 �
 | 리팩터링 | 변경 전후 공개 API 응답이 같다 | 골든 파일 비교 테스트 |
 
 운영·공유 환경에 닿는 CHECK는 쓰지 않는다(`30-backend-safety`). 로컬 DB, Testcontainers, 임시 파일만 쓴다.
+`knack gate run`·`reverify`는 CHECK를 실행하기 전에 `guard-prod-ops`로 검사한다. 막히면 실행하지 않고 `guard=deny`로 실패 처리한다. 게이트를 고치지 않고 훅을 끄는 것으로 통과시키지 않는다.
 
 ## 4. 승인 — 설계 게이트에서 함께
 - PLAN.md(버그면 BUGFIX.md의 수정 계획)와 함께 GATES.md를 보여주고, `knack gate status <경로>` 출력으로 파싱 결과와 실행될 명령을 제시한다.

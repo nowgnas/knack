@@ -24,6 +24,7 @@
 - 셸 스크립트는 macOS 기본 bash 3.2에서 동작해야 한다 (연관 배열, `mapfile`, `${v,,}` 금지). JSON 처리와 조회 로직은 `lib/knack.py`(python3 표준 라이브러리만)에 둔다.
 - 새 스킬을 추가하거나 스킬 절차·CLI 명령·결과물을 바꾸면 `skills/knack-help/USAGE.md`와 `README.md`를 함께 갱신한다.
 - 훅 스크립트는 판단할 수 없는 입력을 통과시킨다(fail-open). 에이전트 작업을 훅 오류로 멈추지 않는다.
+  - 예외: `guard-prod-ops`는 일부러 막는다(fail-closed). 통과시키면 운영 DB·환경에 닿을 수 있기 때문이다. 이 훅을 고칠 때는 판단할 수 없는 입력을 계속 막는지 `tests/test_guard_prod.py`로 확인한다.
 - 언어: 사람이 읽고 고치는 문서(룰, 스킬 본문, USAGE, 템플릿)는 한국어로 쓴다. 모델만 읽는 문서(서브에이전트 본문, 리뷰 체크리스트)는 영어로 쓰고 출력은 한국어로 하라고 지시한다.
 - 스킬 description은 160자 이하로 의도가 드러나게, 본문은 70줄 이하의 목차로 쓰고 세부는 `references/`에 둔다. `knack doctor`가 점검한다.
 - 변경 후 `tests/smoke.sh`를 실행한다. push·PR 때 GitHub Actions가 macOS(`/bin/bash` 3.2)와 Ubuntu에서 다시 실행한다.
