@@ -165,6 +165,79 @@ class Mistakes(unittest.TestCase):
             f.write(b"| 2026-10-30 | mistake:enc \xff\xfa | x | - |")  # 잘못된 UTF-8 은 숨기지 않고 exit 2
         self.assertEqual(run("check", self.d).returncode, 2)
 
+    def test_same_pr_in_different_notation_counts_once(self):
+        for other in ("PR #12", "PR#12", "pr #12", "[#12](https://github.com/o/r/pull/12)",
+                      "https://github.com/o/r/pull/12", "https://github.com/o/r/pull/12/files", "`#12`"):
+            self.ledger(row("a", "#12"), row("a", other))
+            self.assertIn("mistake:a\t1회", run("list", self.d).stdout, other)
+        self.ledger(row("a", "#12"), row("a", "PR #13"))
+        self.assertIn("mistake:a\t2회", run("list", self.d).stdout)
+        self.ledger(row("a", "bug-npe-2026-10-01"), row("a", "bug-npe-2026-10-20"))
+        self.assertIn("mistake:a\t2회", run("list", self.d).stdout)
+
+    def test_bugfix_only_tags_print_migration_note(self):
+        write(self.d, ".design/bug-a/BUGFIX.md", "실수 태그: `mistake:old-tag`\n")
+        write(self.d, ".design/bug-b/BUGFIX.md", "실수 태그: `mistake:old-tag`\n")
+        write(self.d, ".design/bug-c/BUGFIX.md", "실수 태그: `mistake:<slug>`\n")  # 빈 템플릿
+        self.ledger(row("old-tag", "#1"))
+        for cmd in ("list", "check"):
+            r = run(cmd, self.d)
+            self.assertEqual(r.returncode, 0, r.stdout)  # 안내만, 세지 않는다
+            self.assertIn("참고: mistake:old-tag", r.stdout)
+            self.assertIn("원장에는 1회", r.stdout)
+            self.assertNotIn("<slug>", r.stdout)
+        self.ledger(row("old-tag", "#1"), row("old-tag", "#2"))
+        write(self.d, "docs/enforcement.md", "| `mistake:old-tag` | 룰 | CI | `make` | exit 1 → 0 |\n")
+        self.assertNotIn("참고:", run("check", self.d).stdout)  # 원장이 따라잡으면 조용하다
+
+    def test_unreadable_bugfix_is_a_note_not_failure(self):
+        p = os.path.join(self.d, ".design", "bug-a", "BUGFIX.md")
+        os.makedirs(os.path.dirname(p))
+        with open(p, "wb") as f:
+            f.write(b"mistake:x \xff\xfa")
+        r = run("check", self.d)
+        self.assertEqual(r.returncode, 0, r.stdout)
+        self.assertIn("BUGFIX.md 를 읽지 못함", r.stdout)
+
+    def test_cannot_enforce_needs_real_reason(self):
+        self.ledger(row("missing-tx", "#1"), row("missing-tx", "#2"))
+        for means in ("강제 불가 — 사유", "강제 불가 — `사유`", "강제 불가 — <사유> 때문", "강제 불가 - 설계 <이유>",
+                      "강제 불가 — -"):
+            write(self.d, "docs/enforcement.md", f"| `mistake:missing-tx` | 룰 | {means} | | |\n")
+            r = run("check", self.d)
+            self.assertEqual(r.returncode, 1, means)
+            self.assertIn("사유 없음", r.stdout, means)
+        write(self.d, "docs/enforcement.md", "| `mistake:missing-tx` | <룰> 정리 | 강제 불가 — 설계 판단 | | |\n")
+        self.assertEqual(run("check", self.d).returncode, 1)  # 룰 칸에 남은 자리표시자
+        write(self.d, "docs/enforcement.md", "| `mistake:missing-tx` | 룰 | 강제 불가 — `List<T>` 경계는 리뷰 판단 | | |\n")
+        self.assertEqual(run("check", self.d).returncode, 0)  # 코드 안의 <T> 는 자리표시자가 아니다
+
+    def test_utf16_enforcement(self):
+        self.ledger(row("enc", "#1"), row("enc", "#2"))
+        p = os.path.join(self.d, "docs", "enforcement.md")
+        for enc in ("utf-16", "utf-16-be"):
+            text = "| `mistake:enc` | 룰 | CI | `make` | exit 1 → 0 |\n"
+            with open(p, "wb") as f:
+                f.write(text.encode(enc) if enc == "utf-16" else b"\xfe\xff" + text.encode(enc))
+            self.assertEqual(run("check", self.d).returncode, 0, enc)
+        with open(p, "wb") as f:
+            f.write("| `mistake:enc` | 룰 | CI | `make` | exit 1 → 0 |\n".encode("utf-16-le"))  # BOM 없는 UTF-16
+        self.assertEqual(run("check", self.d).returncode, 2)
+
+    def test_real_templates_with_rows(self):
+        tpl = os.path.join(ROOT, "skills", "mistake-proofing", "templates")
+        with open(os.path.join(tpl, "mistakes.md"), encoding="utf-8") as f:
+            ledger = f.read()
+        with open(os.path.join(tpl, "enforcement.md"), encoding="utf-8") as f:
+            table = f.read()
+        write(self.d, "docs/mistakes.md", ledger + row("tx", "#1") + row("tx", "PR #2"))
+        write(self.d, "docs/enforcement.md", table)
+        r = run("check", self.d)
+        self.assertEqual(r.returncode, 1, r.stdout)  # 템플릿의 자리표시자 행은 강제로 보지 않는다
+        self.assertIn("mistake:tx (2회", r.stdout)
+        write(self.d, "docs/enforcement.md", table + "| `mistake:tx` | 룰 | ArchUnit | `./gradlew test` | abc1234 exit 1, 수정 후 exit 0 |\n")
+        self.assertEqual(run("check", self.d).returncode, 0)
+
     def test_tag_boundaries_and_korean_particle(self):
         self.ledger(row("abc", "#1"), "| 2026-10-30 | nomistake:abc `mistake:abcd` | x | #2 |\n")
         self.assertEqual(run("check", self.d).returncode, 0)  # 다른 태그
