@@ -5,6 +5,7 @@ unlazy(https://github.com/Leonxlnx/unlazy, MIT)의 게이트 형식 중 단일 �
 """
 import datetime
 import hashlib
+import json
 import os
 import re
 import subprocess
@@ -149,10 +150,45 @@ def find_root(path):
     return Path.cwd()
 
 
+GUARD_PROD = Path(__file__).resolve().parent.parent / "hooks" / "guard-prod-ops"
+
+
+def guard_denies(cmd, cwd):
+    """CHECK 는 에이전트 셸 도구를 거치지 않으므로 guard-prod-ops 훅을 같은 입력으로 직접 부른다.
+    훅이 꺼져 있으면(hook.json enabled=false·KNACK_GUARD_PROD=off) 검사하지 않는다. 거부 사유 또는 None."""
+    try:
+        if not json.loads((GUARD_PROD / "hook.json").read_text(encoding="utf-8")).get("enabled", True):
+            return None
+    except FileNotFoundError:
+        return None
+    except (OSError, ValueError) as e:
+        return f"guard-prod-ops 설정을 읽지 못함 ({e})"
+    payload = json.dumps({"hook_event_name": "PreToolUse", "tool_name": "Bash",
+                          "tool_input": {"command": cmd}, "cwd": str(cwd)}, ensure_ascii=False)
+    try:
+        p = subprocess.run([sys.executable, str(GUARD_PROD / "guard_prod.py")], input=payload.encode("utf-8"),
+                           capture_output=True, timeout=30)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return f"guard-prod-ops 검사를 실행하지 못함 ({type(e).__name__})"
+    out = p.stdout.decode("utf-8", "replace").strip()
+    if not out:
+        return None
+    try:
+        decision = json.loads(out)["hookSpecificOutput"]
+    except (ValueError, KeyError, TypeError):
+        return "guard-prod-ops 출력을 해석하지 못함"
+    if decision.get("permissionDecision") == "deny":
+        return decision.get("permissionDecisionReason") or "guard-prod-ops 가 막음"
+    return None
+
+
 def run_gate(gate, root, timeout):
     cwd = root / gate.attrs["CWD"] if gate.attrs.get("CWD") else root
     if not cwd.is_dir():
         return False, "cwd=missing", ""
+    why = guard_denies(gate.attrs["CHECK"], cwd)
+    if why:
+        return False, "guard=deny", why
     shell = os.environ.get("KNACK_GATE_SHELL", "/bin/sh")
     try:
         p = subprocess.run([shell, "-c", gate.attrs["CHECK"]], cwd=cwd, stdin=subprocess.DEVNULL,
