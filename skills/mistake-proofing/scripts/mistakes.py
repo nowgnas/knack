@@ -10,6 +10,7 @@ enforcement 표의 행: | 태그 | 룰 | 강제 수단 | 실행 명령 | 과거 
 파일은 UTF-8(BOM 허용) 또는 BOM 있는 UTF-16 이어야 한다.
 종료 코드: 0 정상 · 1 강제 수단 없는 재발 · 2 사용법 오류·읽을 수 없는 파일·원장 형식 오류
 """
+import datetime
 import re
 import sys
 from pathlib import Path
@@ -54,24 +55,38 @@ def collect(repo):
     """태그 → 발생(날짜 · 버그 기록) 목록. 원장 표의 둘째 칸에 태그가 있는 행만 센다."""
     doc = repo.joinpath(*LEDGER)
     out, seen = {}, set()
+    if doc.parent.is_symlink() and not doc.parent.exists():
+        raise Unreadable(f"{doc.parent}: 깨진 링크다")
     if not doc.is_file():
         if doc.is_symlink() or doc.exists():
             raise Unreadable(f"{doc}: 원장이 일반 파일이 아니다(깨진 링크·폴더)")
         return out
+    fence = False
     for no, line in enumerate(read_text(doc).splitlines(), 1):
-        if not line.strip().startswith("|"):
+        if line.strip().startswith(("```", "~~~")):
+            fence = not fence
             continue
+        if fence or not line.strip().startswith("|"):
+            continue  # 코드 블록 안의 예시·표 밖의 문장
         cells = cells_of(line)
         tags = tags_in(cells[1]) if len(cells) > 1 else set()
-        if not tags:
-            continue  # 머리글·구분선·자리표시자 행
         where = f"{'/'.join(LEDGER)}:{no}"
+        if not tags:
+            if (len(cells) > 1 and cells[1] == "태그") or all(set(c) <= set("-: ") for c in cells) \
+                    or PLACEHOLDER.match(cells[0]) or "mistake:<slug>" in line:
+                continue  # 머리글·구분선·자리표시자 행
+            # 태그 오타·빈 태그·열 순서가 바뀐 행을 조용히 빼면 재발을 적게 센다
+            raise Unreadable(f"{where}: 둘째 칸에 mistake:<slug> 태그가 없다 (slug 는 영문 소문자·숫자·-, 순서: 날짜 | 태그 | 요약 | 버그 기록)")
         if len(cells) != 4:
             raise Unreadable(f"{where}: 열이 4개가 아니다 (날짜 | 태그 | 요약 | 버그 기록, 칸 안의 | 는 \\| )")
         if len(tags) != 1:
             raise Unreadable(f"{where}: 한 행에 태그는 하나만 적는다")
-        if not DATE.match(cells[0]):
-            raise Unreadable(f"{where}: 날짜는 YYYY-MM-DD")
+        try:
+            if not DATE.match(cells[0]):
+                raise ValueError
+            datetime.date.fromisoformat(cells[0])
+        except ValueError:
+            raise Unreadable(f"{where}: 날짜는 YYYY-MM-DD (실제 날짜)")
         slug, record = tags.pop(), cells[3]
         if record not in NO_RECORD:
             if (slug, record) in seen:

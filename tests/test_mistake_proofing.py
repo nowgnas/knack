@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """mistake-proofing mistakes.py 회귀 테스트: 커밋되는 원장(docs/mistakes.md) 집계, 2회 판정, enforcement.md 대조, 새 clone."""
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -76,7 +77,12 @@ class Mistakes(unittest.TestCase):
         for bad in ("| 2026-10-30 | `mistake:a` | 요약 |\n",                      # 열 부족
                     "| 2026-10-30 | `mistake:a` | a | b | c |\n",                # 이스케이프 안 된 |
                     "| 2026-10-30 | `mistake:a` `mistake:b` | 요약 | - |\n",       # 태그 두 개
-                    "| 어제 | `mistake:a` | 요약 | - |\n"):                       # 날짜 형식
+                    "| 어제 | `mistake:a` | 요약 | - |\n",                         # 날짜 형식
+                    "| 2026-13-45 | `mistake:a` | 요약 | - |\n",                   # 없는 날짜
+                    "| `mistake:a` | 2026-10-30 | 요약 | - |\n",                   # 열 순서가 바뀜
+                    "| 2026-10-30 | 요약 | `mistake:a` | - |\n",                   # 태그를 요약 칸에
+                    "| 2026-10-30 | `mistake:missing_tx` | 요약 | - |\n",          # 태그 오타
+                    "| 2026-10-30 |  | 요약 | - |\n"):                             # 빈 태그
             self.ledger(bad)
             r = run("check", self.d)
             self.assertEqual(r.returncode, 2, bad)
@@ -84,6 +90,15 @@ class Mistakes(unittest.TestCase):
         self.ledger("| 2026-10-30 | `mistake:a` | `x \\| y` 누락 | - |\n")
         self.assertEqual(run("check", self.d).returncode, 0)  # 칸 안의 \| 는 구분자가 아니다
 
+    def test_code_block_rows_are_not_counted(self):
+        self.ledger(row("a", "#1"), "\n```\n" + row("a", "#2") + "```\n")
+        self.assertIn("mistake:a\t1회", run("list", self.d).stdout)
+
+    def test_broken_docs_link_exit_2(self):
+        os.symlink(os.path.join(self.d, "nowhere"), os.path.join(self.d, "docs"))
+        self.assertEqual(run("check", self.d).returncode, 2)
+
+    @unittest.skipUnless(shutil.which("git"), "git 없음")
     def test_fresh_clone_counts_like_ci(self):
         """bug-fix 방식(.design 은 gitignore, 원장은 커밋)으로 만든 레포를 새로 clone 해도 재발을 잡는다."""
         git = ["git", "-c", "user.name=t", "-c", "user.email=t@t", "-c", "init.defaultBranch=main"]
