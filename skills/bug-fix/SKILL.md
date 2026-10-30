@@ -19,7 +19,7 @@ overlaps: mattpocock-skills:diagnosing-bugs, engineering:debug
 7. 영향 데이터: 잘못 저장된 데이터가 있으면 조회 쿼리와 보정 스크립트 **초안**만 만든다. 실행은 사람이 한다.
 8. 리뷰: 경량(1–3개 파일, 동작 변경 없음)이 아니면 `impl-review`
 9. 기록:
-   - 실수의 종류가 분명하면 규모와 상관없이 레포의 `docs/mistakes.md`(커밋되는 발생 원장, 없으면 `../mistake-proofing/templates/mistakes.md`로 생성)에 `| 날짜 | mistake:<slug> | 한 줄 요약 | 버그 기록(PR·이슈, 없으면 bug-<slug>) |` 한 줄을 추가해 수정 커밋에 넣는다(파일을 처음 만들 때는 레포에 새 파일이 생기므로 사용자 확인). 같은 태그가 이미 있으면 `mistake-proofing`
+   - 실수의 종류가 분명하면 규모와 상관없이 레포의 `docs/mistakes.md`(커밋되는 발생 원장, 없으면 `../mistake-proofing/templates/mistakes.md`로 생성, 그 경로가 없으면 `references/bugfix-workflow.md` 9절)에 `| 날짜 | mistake:<slug> | 한 줄 요약 | 버그 기록(PR·이슈, 없으면 bug-<slug>-<날짜>) |` 한 줄을 추가해 수정 커밋에 넣는다(파일을 처음 만들 때는 레포에 새 파일이 생기므로 사용자 확인). 같은 태그가 이미 있으면 `mistake-proofing`
    - 경량이면 그 한 줄과 대화 보고만. `BUGFIX.md`는 만들지 않는다
    - 그 밖에는 `templates/BUGFIX.md` → `.design/bug-<slug>/BUGFIX.md` 한 개(수정 계획과 결과를 같은 파일에, 커밋되지 않음). "재발 방지"에 같은 태그를 적는다
 
