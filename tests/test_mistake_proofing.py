@@ -94,6 +94,22 @@ class Mistakes(unittest.TestCase):
         self.ledger(row("a", "#1"), "\n```\n" + row("a", "#2") + "```\n")
         self.assertIn("mistake:a\t1회", run("list", self.d).stdout)
 
+    def test_fence_closes_only_with_same_marker(self):
+        self.ledger(row("a", "#1"), "\n````md\n~~~\n" + row("a", "#2") + "```\n````\n" + row("a", "#3"))
+        self.assertIn("mistake:a\t2회", run("list", self.d).stdout)
+
+    def test_unclosed_fence_exit_2(self):
+        self.ledger(row("a", "#1"), "\n```\n" + row("a", "#2"))
+        self.assertEqual(run("list", self.d).returncode, 2)
+
+    def test_dated_row_with_placeholder_tag_exit_2(self):
+        self.ledger("| 2026-01-02 | `mistake:<slug>` | 요약 | #1 |\n")
+        self.assertEqual(run("list", self.d).returncode, 2)
+
+    def test_docs_is_file_exit_2(self):
+        write(self.d, "docs", "x\n")
+        self.assertEqual(run("check", self.d).returncode, 2)
+
     def test_broken_docs_link_exit_2(self):
         os.symlink(os.path.join(self.d, "nowhere"), os.path.join(self.d, "docs"))
         self.assertEqual(run("check", self.d).returncode, 2)

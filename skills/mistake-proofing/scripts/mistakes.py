@@ -19,6 +19,7 @@ from pathlib import Path
 TAG = re.compile(r"(?<![A-Za-z0-9_-])mistake:([a-z0-9][a-z0-9-]*[a-z0-9]|[a-z0-9])(?![A-Za-z0-9_-])", re.IGNORECASE)
 PLACEHOLDER = re.compile(r"^<.*>$")
 DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 LEDGER = ("docs", "mistakes.md")
 NO_RECORD = {"", "-", "—"}
 REPEAT = 2
@@ -57,15 +58,23 @@ def collect(repo):
     out, seen = {}, set()
     if doc.parent.is_symlink() and not doc.parent.exists():
         raise Unreadable(f"{doc.parent}: 깨진 링크다")
+    if doc.parent.exists() and not doc.parent.is_dir():
+        raise Unreadable(f"{doc.parent}: 폴더가 아니다")
     if not doc.is_file():
         if doc.is_symlink() or doc.exists():
             raise Unreadable(f"{doc}: 원장이 일반 파일이 아니다(깨진 링크·폴더)")
         return out
-    fence = False
+    fence, opened = None, 0  # 여는 펜스(문자·길이) — 같은 문자로 길이가 같거나 긴 줄만 닫는다
     for no, line in enumerate(read_text(doc).splitlines(), 1):
-        if line.strip().startswith(("```", "~~~")):
-            fence = not fence
-            continue
+        m = FENCE.match(line)
+        if m:
+            mark = m.group(1)
+            if fence is None:
+                fence, opened = mark, no
+                continue
+            if mark[0] == fence[0] and len(mark) >= len(fence) and not line.strip()[len(mark):].strip():
+                fence = None
+                continue
         if fence or not line.strip().startswith("|"):
             continue  # 코드 블록 안의 예시·표 밖의 문장
         cells = cells_of(line)
@@ -73,7 +82,7 @@ def collect(repo):
         where = f"{'/'.join(LEDGER)}:{no}"
         if not tags:
             if (len(cells) > 1 and cells[1] == "태그") or all(set(c) <= set("-: ") for c in cells) \
-                    or PLACEHOLDER.match(cells[0]) or "mistake:<slug>" in line:
+                    or PLACEHOLDER.match(cells[0]) or ("mistake:<slug>" in line and not DATE.match(cells[0])):
                 continue  # 머리글·구분선·자리표시자 행
             # 태그 오타·빈 태그·열 순서가 바뀐 행을 조용히 빼면 재발을 적게 센다
             raise Unreadable(f"{where}: 둘째 칸에 mistake:<slug> 태그가 없다 (slug 는 영문 소문자·숫자·-, 순서: 날짜 | 태그 | 요약 | 버그 기록)")
@@ -93,6 +102,8 @@ def collect(repo):
                 continue  # 같은 버그를 두 번 적은 행
             seen.add((slug, record))
         out.setdefault(slug, []).append(f"{cells[0]} {record if record not in NO_RECORD else '(기록 없음)'}")
+    if fence:
+        raise Unreadable(f"{'/'.join(LEDGER)}:{opened}: 코드 블록이 닫히지 않았다 — 아래 행을 셀 수 없다")
     return out
 
 
