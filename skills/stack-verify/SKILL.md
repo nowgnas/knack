@@ -22,7 +22,7 @@ JSON(`schema_version` 1)을 읽는다.
 | `commands` | `compile`·`test`·`single_test`·`format`·`lint`·`full`. 근거가 없으면 `null` |
 | `migration` | `tool`(flyway·liquibase·ef-core), 근거, `testcontainers_dependency`(의존성만 본 것), .NET은 `ef_providers`(비어 있으면 공급자가 참조 프로젝트에 있을 수 있다 — 확인 필요), `tests_call`(테스트 코드의 `Migrate`·`EnsureCreated` 호출), `dotnet_ef_local_tool`(true면 `dotnet tool restore` 후 `dotnet ef`) |
 | `note` | 단위별 주의. 예: Gradle에 java 계열 플러그인 근거가 없어 `compile`·`test`를 비움 |
-| `ci_files` | CI 설정. CI가 다른 명령(프로파일, 플래그)을 쓰면 CI 쪽을 따른다 |
+| `ci_files` | CI 설정. CI가 다른 명령(프로파일, 플래그)을 쓰면 CI 쪽을 따른다. 운영 프로파일·환경(prod 등)이면 로컬 프로파일로 바꿔 돌리고 바꾼 점을 보고한다 |
 
 - 단위가 여럿이면 바꾼 파일이 속한 `run_dir`만 돌린다.
 - `null`인 명령은 만들어 내지 않는다. README·CI에서 찾고, 없으면 "검증 명령 없음"으로 보고한다.
@@ -40,6 +40,7 @@ JSON(`schema_version` 1)을 읽는다.
 7. 머지 직전이면 `full`
 
 실패하면 멈추고 원인을 고친다. 같은 명령을 고치지 않고 다시 돌려서 통과시키지 않는다(불안정 테스트면 그렇다고 보고).
+레포에 `verify-<앱>` 스킬도 있으면 이 스킬이 통과한 뒤에 그 스킬로 앱을 띄워 동작을 확인한다(빌드·테스트가 먼저).
 
 ## 3. 마이그레이션 검증 (로컬·컨테이너 DB만)
 운영·공유 DB에 연결하는 명령은 돌리지 않는다. `guard-prod-ops` 훅이 막으면 우회하지 말고 사용자에게 명령만 제안한다.
