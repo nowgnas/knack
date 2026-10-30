@@ -679,7 +679,7 @@ EOF
 rc=0; "$K" gate run "$GP" > "$TMP/gp1.txt" 2>&1 || rc=$?
 check "gate run: CHECK 도 guard-prod-ops 검사 — 막히면 실행하지 않고 실패" '[ $rc -eq 1 ] && [ ! -e "$GR/ran.flag" ] && grep -q "guard=deny" "$GP" && contains "$TMP/gp1.txt" "guard-prod-ops"'
 rc=0; KNACK_GUARD_PROD=off "$K" gate run "$GP" > /dev/null 2>&1 || rc=$?
-check "gate run: 명령 앞 KNACK_GUARD_PROD=off 로는 우회되지 않음" '[ $rc -eq 1 ] && [ ! -e "$GR/ran.flag" ]'
+check "gate run: 명령 앞 KNACK_GUARD_PROD=off 로는 우회되지 않음" '[ $rc -eq 1 ] && [ ! -e "$GR/ran.flag" ] && grep -q "guard=deny" "$GP"'
 cat > "$GP" <<'EOF'
 - [ ] G1: 로컬 대상 마이그레이션 CHECK 는 그대로 실행한다
   CHECK: PATH="$PWD/tools:$PATH" flyway -url=jdbc:postgresql://localhost:5432/app migrate

@@ -68,7 +68,7 @@ class FakeHook(unittest.TestCase):
         self.hook("print('{\"hookSpecificOutput\": {\"permissionDecision\": \"deny\", \"permissionDecisionReason\": \"운영\"}}')")
         self.assertEqual(self.check(), "운영")
         self.hook("print('{\"hookSpecificOutput\": {\"permissionDecision\": \"allow\"}}')")
-        self.assertIsNone(self.check())
+        self.assertIsNotNone(self.check())  # 허용은 exit 0 + 빈 출력뿐
 
     def test_timeout_denies(self):
         old, gate.GUARD_TIMEOUT = gate.GUARD_TIMEOUT, 1
@@ -77,6 +77,13 @@ class FakeHook(unittest.TestCase):
             self.assertIsNotNone(self.check())
         finally:
             gate.GUARD_TIMEOUT = old
+
+
+def real_enabled():
+    try:
+        return json.loads((REAL / "hook.json").read_text(encoding="utf-8")).get("enabled", True) is True
+    except (OSError, ValueError, AttributeError):
+        return False
 
 
 class RealHook(unittest.TestCase):
@@ -91,16 +98,19 @@ class RealHook(unittest.TestCase):
             os.environ["KNACK_GUARD_PROD"] = self.old
         self.tmp.cleanup()
 
-    @unittest.skipUnless(json.loads((REAL / "hook.json").read_text(encoding="utf-8")).get("enabled", True),
-                         "이 PC 에서 guard-prod-ops 가 꺼져 있음")
+    @unittest.skipUnless(real_enabled(), "이 PC 에서 guard-prod-ops 가 꺼져 있음")
     def test_migration_without_target_denied_local_allowed(self):
         self.assertIsNotNone(gate.guard_denies(MIGRATE, self.tmp.name))
         self.assertIsNone(gate.guard_denies(LOCAL, self.tmp.name))
 
-    @unittest.skipUnless(json.loads((REAL / "hook.json").read_text(encoding="utf-8")).get("enabled", True),
-                         "이 PC 에서 guard-prod-ops 가 꺼져 있음")
+    @unittest.skipUnless(real_enabled(), "이 PC 에서 guard-prod-ops 가 꺼져 있음")
     def test_env_off_does_not_bypass(self):
         os.environ["KNACK_GUARD_PROD"] = "off"
+        import subprocess
+        payload = json.dumps({"hook_event_name": "PreToolUse", "tool_name": "Bash",
+                              "tool_input": {"command": MIGRATE}, "cwd": self.tmp.name})
+        direct = subprocess.run([sys.executable, str(REAL / "guard_prod.py")], input=payload.encode(), capture_output=True)
+        self.assertEqual(direct.stdout.strip(), b"")  # 대조: 훅만 부르면 off 로 건너뛴다
         self.assertIsNotNone(gate.guard_denies(MIGRATE, self.tmp.name))
 
 

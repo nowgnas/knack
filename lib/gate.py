@@ -179,7 +179,7 @@ def guard_denies(cmd, cwd):
         return f"guard-prod-ops 검사를 실행하지 못함 ({type(e).__name__})"
     if p.returncode != 0:
         err = p.stderr.decode("utf-8", "replace").strip().splitlines()
-        return f"guard-prod-ops 검사가 실패함 (exit {p.returncode}{': ' + err[-1] if err else ''})"
+        return f"guard-prod-ops 검사가 실패함 (exit {p.returncode}{': ' + err[-1][:200] if err else ''})"
     out = p.stdout.decode("utf-8", "replace").strip()
     if not out:
         return None  # 훅 규약: 정상 종료 + 빈 출력 = 허용
@@ -188,8 +188,6 @@ def guard_denies(cmd, cwd):
         verdict = decision["permissionDecision"]
     except (ValueError, KeyError, TypeError):
         return "guard-prod-ops 출력을 해석하지 못함"
-    if verdict == "allow":
-        return None
     if verdict == "deny":
         reason = decision.get("permissionDecisionReason")
         return reason if isinstance(reason, str) and reason else "guard-prod-ops 가 막음"
