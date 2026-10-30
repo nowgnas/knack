@@ -31,7 +31,7 @@
 - Run `knack doctor` at the end of `knack update`, and stop before installing when the pull fails.
 
 ### Fixed
-- Check `knack gate run` / `reverify` `CHECK` commands with `guard-prod-ops` before running them: they ran through `sh -c` and never passed the agent's shell hook. A blocked check fails with `guard=deny` without running; `KNACK_GUARD_PROD=off` or a disabled hook skips the check as before.
+- Check `knack gate run` / `reverify` `CHECK` commands with `guard-prod-ops` before running them: they ran through `sh -c` and never passed the agent's shell hook. A blocked check fails with `guard=deny` without running. The gate check also fails closed on a hook error, timeout or unreadable output, ignores `KNACK_GUARD_PROD` (so prefixing `knack gate run` with it does not bypass the check), and is skipped only when `hook.json` has `"enabled": false`.
 - State the `guard-prod-ops` fail-closed exception next to the fail-open hook rule in `AGENTS.md`, and describe the hook in the USAGE hooks section.
 - Have the `verifier` subagent use `stack-verify` detection and order (no `format.apply`, 0 tests run is a failure, never bypass `guard-prod-ops`), and run CI commands that use a production profile with the local one.
 - Carry latent 🔴/🟠 findings into the `feature-implementation` done criteria, the PLAN review line and USAGE; run `verify-<app>` after `stack-verify` in `bug-fix` verification and in the generated skill.

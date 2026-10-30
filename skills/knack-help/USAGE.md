@@ -141,7 +141,7 @@ knack 은 백엔드 개발용 개인 에이전트 하네스입니다. 에이전�
 
 기본 훅 `guard-agent-config`는 `~/.claude/skills`, `~/.agents/skills`, `~/.codex/skills`, `~/.claude/agents`에 직접 쓰는 것과, 지시·설정 파일(`CLAUDE.md`·`AGENTS.md`·`config.toml`)의 `knack:start … knack:end` 블록을 고치는 편집을 막습니다. 하네스로 이어지는 링크를 통한 수정, 블록 밖 편집, 보호 경로 읽기는 허용합니다. 끄려면 `knack hook disable guard-agent-config` → `knack install`.
 
-기본 훅 `guard-prod-ops`(Claude·Codex `PreToolUse`)는 운영·원격 DB 대상 마이그레이션(`dotnet ef database update/drop`, Flyway, Liquibase, Gradle·Maven 플러그인)과 운영 환경·프로파일(`ASPNETCORE_ENVIRONMENT`·`SPRING_PROFILES_ACTIVE`=prod 등) 실행을 막습니다. 다른 훅과 달리 판단할 수 없으면 막습니다(fail-closed). 통과하는 대상은 localhost·Testcontainers·메모리 DB·프로젝트 SQLite 파일과 프로젝트 `.knack/safe-db-hosts`에 한 줄씩 적은 호스트입니다. `knack gate run`의 `CHECK`도 실행 전에 같은 기준으로 검사합니다. 끄려면 `knack hook disable guard-prod-ops` → `knack install`, 또는 훅 프로세스 환경에 `KNACK_GUARD_PROD=off`(명령 앞에 붙인 것은 무시).
+기본 훅 `guard-prod-ops`(Claude·Codex `PreToolUse`)는 운영·원격 DB 대상 마이그레이션(`dotnet ef database update/drop`, Flyway, Liquibase, Gradle·Maven 플러그인)과 운영 환경·프로파일(`ASPNETCORE_ENVIRONMENT`·`SPRING_PROFILES_ACTIVE`=prod 등) 실행을 막습니다. 다른 훅과 달리 판단할 수 없으면 막습니다(fail-closed). 통과하는 대상은 localhost·Testcontainers·메모리 DB·프로젝트 SQLite 파일과 프로젝트 `.knack/safe-db-hosts`에 한 줄씩 적은 호스트입니다. `knack gate run`·`reverify`의 `CHECK`도 실행 전에 같은 기준으로 검사합니다(시간 초과·훅 오류도 막음). 끄려면 `knack hook disable guard-prod-ops` → `knack install`(gate 검사는 바로 꺼짐), 또는 훅 프로세스 환경에 `KNACK_GUARD_PROD=off`(명령 앞에 붙인 것은 무시, gate 검사는 이 값을 따르지 않음).
 
 기본 훅 `knack-stale`(Claude `SessionStart`)은 설치본이 레포와 다르면 세션 시작 때 알립니다. 스킬은 심링크라 레포를 고치면 바로 반영되지만 룰 블록·서브에이전트·훅·모델은 `install.sh`가 만드는 생성물이라 레포만 고치면 낡은 상태로 남기 때문입니다. 판단은 `install.sh --status`가 하고, 훅은 알리기만 합니다(설치는 사용자 승인 후 `knack install`). 끄려면 `knack hook disable knack-stale` → `knack install`.
 
