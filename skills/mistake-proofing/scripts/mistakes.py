@@ -26,13 +26,15 @@ FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 LEDGER = ("docs", "mistakes.md")
 NO_RECORD = {"", "-", "—"}
 # PR·이슈: 링크 https://host/owner/repo/(pull|issues)/12 · 축약 "#12", "PR #12", "issue #12"
-LINK = re.compile(r"https?://([^/\s)]+)/([^/\s)]+)/([^/\s)]+)/(?:pull|issues|merge_requests)/(\d+)", re.IGNORECASE)
+LINK = re.compile(r"https?://([^/\s)]+)/([^/\s)]+)/([^/\s)]+)/(?:pull|issues)/(\d+)", re.IGNORECASE)
 SHORT = re.compile(r"(?:^|[\s\[(`])(?:(?:pr|pull request|issue|이슈)\s*)?#(\d+)\b", re.IGNORECASE)
 CODE_SPAN = re.compile(r"`([^`]*)`")
 LEFTOVER = re.compile(r"<[^<>]*>")
 HTML = re.compile(r"</?(?:br|sub|sup|b|i|em|strong|code|kbd)\s*/?>", re.IGNORECASE)
+NOT_PLACEHOLDER = re.compile(r"<!--.*?-->|<[a-z][a-z0-9+.-]*:[^<>\s]*>|<[^<>\s@]+@[^<>\s@]+>", re.IGNORECASE)  # 주석·자동 링크
 HANGUL = re.compile(r"[가-힣]")
-LEGACY_MARK = "docs/mistakes.md"
+# 원장으로 옮긴 BUGFIX.md: "docs/mistakes.md 로 옮김" 또는 템플릿 줄에 "예"로 답한 파일
+MOVED = re.compile(r"docs/mistakes\.md\s*로 옮김|docs/mistakes\.md`?에도 한 줄 추가했다:\s*예(?!\s*/)")
 REPEAT = 2
 
 
@@ -74,19 +76,24 @@ def record_key(record):
     return ("text", re.sub(r"\s+", " ", record.strip("` ")).lower())
 
 
-def has_placeholder(v):
-    """칸에 템플릿 자리표시자 <...> 가 남았나. <br> 같은 HTML, 코드 안의 List<T> 는 자리표시자가 아니다.
-    코드 안이라도 칸 전체가 <...> 이거나 한글이 든 <...> 는 자리표시자다."""
-    v = HTML.sub(" ", v)
+def plain(v):
+    """<br> 같은 HTML 태그·주석을 뺀 칸 내용."""
+    return re.sub(r"<!--.*?-->", " ", HTML.sub(" ", v)).strip()
+
+
+def has_placeholder(v, strict=False):
+    """칸에 템플릿 자리표시자 <...> 가 남았나. HTML·주석·자동 링크 <https://…>, 코드 안의 List<T> 는 아니다.
+    코드 안이라도 코드 전체가 <...> 면 자리표시자, strict(강제 불가 이유)면 한글이 든 <...> 도 자리표시자다."""
+    v = NOT_PLACEHOLDER.sub(" ", HTML.sub(" ", v))
     if LEFTOVER.search(CODE_SPAN.sub(" ", v)):
         return True
-    return any(PLACEHOLDER.match(c.strip()) or any(HANGUL.search(x) for x in LEFTOVER.findall(c))
+    return any(PLACEHOLDER.match(c.strip()) or (strict and any(HANGUL.search(x) for x in LEFTOVER.findall(c)))
                for c in CODE_SPAN.findall(v))
 
 
 def legacy_tags(repo):
-    """예전 형식(docs/mistakes.md 를 언급하지 않는) .design/*/BUGFIX.md 의 태그: 태그 → 폴더 이름 목록.
-    지금 bug-fix 템플릿은 "docs/mistakes.md에도 한 줄 추가했다" 줄을 넣으므로 새 파일은 해당하지 않는다."""
+    """원장으로 옮겼다는 표시(MOVED)가 없는 .design/*/BUGFIX.md 의 태그: 태그 → 폴더 이름 목록.
+    지금 bug-fix 템플릿은 "docs/mistakes.md에도 한 줄 추가했다: 예" 로 답하므로 옮긴 새 파일은 해당하지 않는다."""
     counts, problems = {}, []
     base = repo / ".design"
     try:
@@ -96,7 +103,7 @@ def legacy_tags(repo):
     for f in files:
         try:
             text = read_text(f)
-            if LEGACY_MARK in text:
+            if MOVED.search(text):
                 continue
             for slug in tags_in(text):
                 counts.setdefault(slug, []).append(f.parent.name)
@@ -108,7 +115,7 @@ def legacy_tags(repo):
 def print_legacy(repo, tags):
     counts, problems = legacy_tags(repo)
     for slug in sorted(counts):
-        print(f"참고: mistake:{slug} 가 예전 형식 BUGFIX.md {len(counts[slug])}곳({', '.join(counts[slug])})에 있다"
+        print(f"참고: mistake:{slug} 가 원장으로 옮겼다는 표시가 없는 BUGFIX.md {len(counts[slug])}곳({', '.join(counts[slug])})에 있다"
               f"(원장 {len(tags.get(slug, []))}회, BUGFIX.md 는 세지 않는다) — docs/mistakes.md 에 행으로 옮기고"
               f" 그 BUGFIX.md 에 \"docs/mistakes.md 로 옮김\"을 적으면 이 안내가 사라진다")
     for p in problems:
@@ -163,13 +170,15 @@ def collect(repo):
     if fence:
         raise Unreadable(f"{'/'.join(LEDGER)}:{opened}: 코드 블록이 닫히지 않았다 — 아래 행을 셀 수 없다")
     keys = [record_key(r) if r not in NO_RECORD else None for _, _, r in rows]
-    repos = {k[1] for k in keys if k and k[0] == "link"}
-    home = repos.pop() if len(repos) == 1 else None  # 링크가 모두 한 레포면 #12 는 그 레포의 12번
+    repos = {}  # 번호 → 그 번호 링크의 레포들. 한 레포뿐이면 #12 는 그 레포의 12번
+    for k in keys:
+        if k and k[0] == "link":
+            repos.setdefault(k[2], set()).add(k[1])
     out, seen = {}, set()
     for (slug, date, record), key in zip(rows, keys):
         if key is not None:
-            if key[0] == "short" and home:
-                key = ("link", home, key[1])
+            if key[0] == "short" and len(repos.get(key[1], ())) == 1:
+                key = ("link", next(iter(repos[key[1]])), key[1])
             if (slug, key) in seen:
                 continue  # 같은 버그를 두 번 적은 행(표기만 다른 같은 PR·이슈 포함)
             seen.add((slug, key))
@@ -184,12 +193,12 @@ def row_state(cells):
     rule, means, cmd, proof = cells[1:5]
     if "강제 불가" in means:
         m = re.search(r"강제 불가\s*[—–-]+\s*(\S.*)", means)
-        why = m.group(1).strip() if m else ""
+        why = plain(m.group(1)) if m else ""
         if not rule:
             return "미완성(룰 비어 있음)"
         if has_placeholder(rule):
             return "미완성(룰에 자리표시자 남음)"
-        if not why or why.strip("` ") in ("사유", "-", "—") or has_placeholder(why):
+        if not why or why.strip("` ") in ("사유", "-", "—") or has_placeholder(why, strict=True):
             return "미완성(강제 불가 사유 없음 — 템플릿의 '사유'·<...>를 실제 이유로 바꾼다)"
         return "강제 불가"
     for name, v in (("룰", rule), ("강제 수단", means), ("실행 명령", cmd), ("과거 실패 증명", proof)):
