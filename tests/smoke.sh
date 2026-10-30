@@ -36,6 +36,7 @@ check "stack-verify detect.py 회귀 테스트 (Gradle·Maven·.NET 픽스처)" 
 check "mistake-proofing mistakes.py 회귀 테스트 (커밋 원장 집계·2회 판정·enforcement 대조·새 clone)" 'python3 "$KNACK_DIR/tests/test_mistake_proofing.py" 2>/dev/null'
 check "verification-skill link_skill.py 회귀 테스트 (링크·복사 sha256·덮어쓰기 거부)" 'python3 "$KNACK_DIR/tests/test_verification_skill.py" 2>/dev/null'
 check "guard-prod-ops 훅 회귀 테스트 (Claude·Codex 형식, fail-closed)" 'python3 "$KNACK_DIR/tests/test_guard_prod.py" 2>/dev/null'
+check "knack gate CHECK 사전 검사 회귀 테스트 (꺼짐·설정 손상·훅 실패·출력 해석)" 'python3 "$KNACK_DIR/tests/test_gate_guard.py" 2>/dev/null'
 for f in "$KNACK_DIR"/skills/*/SKILL.md; do
   d="$(dirname "$f")"; s="$(basename "$d")"
   check "$s: frontmatter name 일치" '[ "$(sed -n "s/^name: *//p" "$f" | head -1)" = "$s" ]'
@@ -668,6 +669,25 @@ touch "$GR/ok.flag"; "$K" gate run "$GF" > /dev/null 2>&1 || true
 python3 -c 'import sys; p = sys.argv[1]; t = open(p, encoding="utf-8").read(); open(p, "w", encoding="utf-8").write(t.replace("EXPECT: /Tests: \\d+ passed/", "EXPECT: Tests: 3 passed"))' "$GF"
 rc=0; "$K" gate status "$GF" > "$TMP/g5.txt" 2>&1 || rc=$?
 check "gate status: 게이트 정의를 바꾸면 이전 증거 무효" '[ $rc -eq 1 ] && contains "$TMP/g5.txt" "정의가 바뀜"'
+GP="$GR/.design/x/prod.md"; mkdir -p "$GR/tools"
+printf '#!/bin/sh\ntouch "$(dirname "$0")/../ran.flag"; echo migrated\n' > "$GR/tools/flyway"; chmod +x "$GR/tools/flyway"
+cat > "$GP" <<'EOF'
+- [ ] G1: 대상 미명시 마이그레이션 CHECK 는 guard-prod-ops 가 실행 전에 막는다
+  CHECK: PATH="$PWD/tools:$PATH" flyway migrate
+  EXPECT: migrated
+EOF
+rc=0; "$K" gate run "$GP" > "$TMP/gp1.txt" 2>&1 || rc=$?
+check "gate run: CHECK 도 guard-prod-ops 검사 — 막히면 실행하지 않고 실패" '[ $rc -eq 1 ] && [ ! -e "$GR/ran.flag" ] && grep -q "guard=deny" "$GP" && contains "$TMP/gp1.txt" "guard-prod-ops"'
+rc=0; KNACK_GUARD_PROD=off "$K" gate run "$GP" > /dev/null 2>&1 || rc=$?
+check "gate run: 명령 앞 KNACK_GUARD_PROD=off 로는 우회되지 않음" '[ $rc -eq 1 ] && [ ! -e "$GR/ran.flag" ] && grep -q "guard=deny" "$GP"'
+cat > "$GP" <<'EOF'
+- [ ] G1: 로컬 대상 마이그레이션 CHECK 는 그대로 실행한다
+  CHECK: PATH="$PWD/tools:$PATH" flyway -url=jdbc:postgresql://localhost:5432/app migrate
+  EXPECT: migrated
+EOF
+rc=0; "$K" gate run "$GP" > /dev/null 2>&1 || rc=$?
+check "gate run: 로컬 대상 CHECK 는 통과·실행" '[ $rc -eq 0 ] && [ -e "$GR/ran.flag" ] && grep -q "result=pass" "$GP"'
+rm -f "$GR/ran.flag" "$GP" "$GR/tools/flyway"; rmdir "$GR/tools"
 B="$GR/.design/x/bad.md"
 cat > "$B" <<'EOF'
 - [ ] G1: 종료 코드가 0이 아니면 기대 출력이 있어도 실패다

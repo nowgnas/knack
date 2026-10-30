@@ -6,6 +6,7 @@ description: <앱>(<Spring Boot|ASP.NET Core> <표면: REST API 등>)를 로컬�
 # Verify <앱>
 
 상태: **미증명** (EVIDENCE.md의 한 실행에서 띄우기·점검·정리와 기능 하나 이상이 통과하면 "증명됨 · <날짜> · <commit>"으로 바꾼다)
+빌드·테스트(`stack-verify`)가 통과한 뒤에 돌린다. 이 스킬은 앱을 띄워 동작을 확인하는 단계다.
 기능 목록: [features/README.md](features/README.md) · 실행 기록: [EVIDENCE.md](EVIDENCE.md)
 
 ## 띄우기
