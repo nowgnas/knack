@@ -251,7 +251,7 @@ check "없는 섹션은 실패" '! "$H" show skill bug-fix --section 없는섹�
 "$H" doctor > "$TMP/doctor.txt" 2>&1; rc=$?
 check "doctor: 문제 0 (exit $rc)" '[ $rc -eq 0 ] && contains "$TMP/doctor.txt" "모든 항목 설치됨" && contains "$TMP/doctor.txt" "모델 이름 확인됨"'
 check "doctor: 스킬 작성 기준 충족 (Astra 가이드)" 'contains "$TMP/doctor.txt" "스킬 작성 기준 충족"'
-check "doctor: Codex 기능 플래그 경고 (hooks, multi_agent)" 'contains "$TMP/doctor.txt" "[features] hooks = true" && contains "$TMP/doctor.txt" "multi_agent = true"'
+check "doctor: Codex 역할 플래그 경고, 기본 차단 훅은 경고 없음" '! contains "$TMP/doctor.txt" "[features] hooks = true" && contains "$TMP/doctor.txt" "multi_agent = true"'
 
 echo "▶ 가드 훅"
 deny_case() { payload="$2"; check "차단: $1" 'guard "$payload" | grep -q "\"permissionDecision\": \"deny\""'; }
