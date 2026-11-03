@@ -110,8 +110,8 @@ knack gate reverify .design/<slug>/GATES.md   # 충족된 것까지 전부 다�
 | 룰 (on-demand) | `git` | 커밋·브랜치·푸시·PR |
 | 룰 (on-demand) | `obsidian-daily` | Obsidian 업무 Daily 노트 읽기·작성. 설정은 `~/.config/knack/obsidian-vault.local.yml`(양식: `templates/`) |
 | 룰 (on-demand) | `obsidian-ticket` | 티켓 관련 작업 시작 시 브랜치명의 티켓 키로 Obsidian 티켓 노트를 먼저 읽기 |
-| 훅 | `guard-agent-config` | 에이전트 설정 폴더에 직접 쓰는(설치·삭제) 명령과 지시·설정 파일의 knack 블록 수정을 막고 knack 명령을 안내 |
-| 훅 | `guard-prod-ops` | 운영·원격 DB 대상 마이그레이션(`dotnet ef database update/drop`, Flyway, Liquibase, Gradle·Maven 플러그인)과 운영 환경·프로파일(`ASPNETCORE_ENVIRONMENT`·`SPRING_PROFILES_ACTIVE`=prod 등) 실행을 막음. 판단할 수 없으면 막음(fail-closed) |
+| 선택 훅 (기본 꺼짐) | `guard-agent-config` | 에이전트 설정 폴더에 직접 쓰는(설치·삭제) 명령과 지시·설정 파일의 knack 블록 수정을 막고 knack 명령을 안내 |
+| 선택 훅 (기본 꺼짐) | `guard-prod-ops` | 운영·원격 DB 대상 마이그레이션(`dotnet ef database update/drop`, Flyway, Liquibase, Gradle·Maven 플러그인)과 운영 환경·프로파일(`ASPNETCORE_ENVIRONMENT`·`SPRING_PROFILES_ACTIVE`=prod 등) 실행을 막음. 판단할 수 없으면 막음(fail-closed) |
 | 훅 | `knack-stale` | 설치본이 레포와 다르면 세션 시작 때 알림 (Claude) |
 | 서브에이전트 | `impl-reviewer` | 구현 맥락 없는 독립 리뷰 (읽기 전용) |
 | 서브에이전트 | `repo-explorer` | 읽기 전용 코드 탐색 |
@@ -145,7 +145,7 @@ knack hook disable guard-agent-config                                   # 훅 �
 knack install --dry-run && knack install                                # 적용
 ```
 
-외부 스킬 제거는 가드 훅이 막습니다. 에이전트가 백업·삭제 명령을 안내하면 사용자가 실행합니다.
+두 차단 훅은 기본적으로 꺼져 있으며, 필요할 때만 명시적으로 켭니다. 운영·공유 환경 쓰기는 백엔드 안전 룰을 따릅니다.
 
 ## 알려진 한계
 
@@ -153,7 +153,7 @@ knack install --dry-run && knack install                                # 적용
 - `guard-agent-config`는 판단할 수 없는 입력을 통과시킵니다(fail-open). 명령을 `;`·`&&`·`||`·`|`로 나누고 `cd`를 따라가며 조각마다 판정합니다. 쓰기 여부는 명령 이름(`cp`·`rm`·`tee`·`sed -i` 등)과 리다이렉트 대상으로만 보고, 따옴표 안과 히어독 본문은 데이터로 취급합니다 — 보호 경로를 읽거나 문서에 적는 작업은 막지 않습니다. 대신 경로를 변수에 담거나 스크립트 파일 안에서 쓰는 경우는 보지 못합니다.
 - `guard-prod-ops`는 실수 방지 장치이지 보안 경계가 아닙니다. 판단할 수 없는 셸 입력은 막고(fail-closed), 대상 DB는 명령에 명시된 것(`--connection`·`-url=`·`-D…url=`·인라인 환경변수)만 봅니다.
   - 대상 없이 실행하는 마이그레이션은 막고 로컬 대상 명령을 안내합니다. 통과하는 대상: `localhost`·`127.x`·`::1`·`host.docker.internal`·`(localdb)`·`.`, `jdbc:tc:`, 메모리 H2/HSQLDB/Derby, 프로젝트 안의 SQLite 파일, 프로젝트 `.knack/safe-db-hosts`에 한 줄씩 적은 호스트(정확히 일치, 와일드카드 없음). docker-compose 서비스 이름도 여기에 적어야 통과합니다.
-  - `knack gate run`·`reverify`의 `CHECK`는 에이전트 셸 도구를 거치지 않으므로, 실행 전에 이 훅을 같은 입력으로 직접 불러 검사합니다(막히면 `guard=deny`로 실패). 여기서는 훅 오류·시간 초과(30초)·해석할 수 없는 출력도 막고, `KNACK_GUARD_PROD` 환경변수는 따르지 않습니다. 끄는 방법은 `knack hook disable guard-prod-ops`(레포 `hook.json`, 즉시 반영) 하나입니다.
+  - `knack gate run`·`reverify`의 `CHECK`는 이 훅을 거치지 않고 셸에서 실행됩니다. 실행 전에 명령과 대상 환경을 확인합니다.
   - 운영 환경·프로파일은 대상이 로컬이어도 막습니다. 끄려면 훅 프로세스 환경에 `KNACK_GUARD_PROD=off`를 두거나 `knack hook disable guard-prod-ops`. 명령 앞에 붙인 `KNACK_GUARD_PROD=off`는 무시합니다.
   - 셸 스크립트는 2단계·256KB까지 열어 봅니다(주석 줄 제외). 넘거나 읽을 수 없거나, 같은 명령에서 만든 뒤 실행하면 막습니다. `eval`·`| sh`·명령 자리의 `$VAR`는 위험 단어가 있을 때 막고, `flyway`·`liquibase`·`dotnet ef` 인자 안의 `$( )`는 늘 막습니다. 기록·검색 명령(`gh`·`git`·`echo`…)은 `$( )` 안에 위험 단어가 있을 때만 막습니다. `kubectl exec … -- sh -c 'dotnet ef database update'`처럼 컨테이너 안에서 돌리는 마이그레이션은 `localhost`라도 내 로컬 DB가 아니므로 막습니다.
   - 보지 못하는 것: Makefile·npm scripts·alias, PowerShell `Update-Database`, `appsettings*.json`·`flyway.conf`에만 적힌 대상, localhost로 연 SSH 터널 너머의 운영 DB, 앱 시작 시 자동 마이그레이션(Spring Flyway/Liquibase, EF `Migrate()`), `psql`·`sqlcmd`로 직접 실행하는 DDL. 훅이 시간 초과(10초)로 끝나면 에이전트가 명령을 그대로 실행할 수 있습니다.

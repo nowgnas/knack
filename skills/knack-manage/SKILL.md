@@ -5,9 +5,7 @@ description: 스킬·룰·훅·서브에이전트·모델 라우팅을 하네스
 
 # Harness Manage
 
-에이전트 설정의 원본은 하네스 레포다. `~/.claude/skills`, `~/.agents/skills`, `~/.claude/agents`,
-훅 설정 파일(`~/.claude/settings.json`, `~/.codex/hooks.json`), 지시 파일의 knack 블록에 직접 쓰지 않는다.
-직접 쓰려고 하면 `guard-agent-config` 훅이 막는다.
+하네스 관리 항목의 원본은 하네스 레포다. 생성된 설정을 직접 바꾸면 이후 설치에서 덮어쓸 수 있으므로 원본을 수정한다.
 세션 시작 때 `knack-stale` 훅이 "설치본이 레포와 다르다"고 알리면, 사용자에게 보고하고 `knack install --dry-run` → 승인 후 `knack install` 로 갱신한다(훅이 직접 설치하지는 않는다).
 
 ## 1. 조회 — 파일을 읽지 말고 CLI로
@@ -27,7 +25,7 @@ description: 스킬·룰·훅·서브에이전트·모델 라우팅을 하네스
 | 외부 스킬 설치 (경로, git URL) | 1) `knack list skills --all`로 같은·비슷한 스킬 확인, 겹치면 알린다 (기능이 겹치는데 둘 다 두기로 하면 하네스 스킬 frontmatter 의 `overlaps:` 에 외부 스킬 이름을 적어 doctor 가 알리게 한다) 2) `knack add skill <src> [--subdir P] [--name N]` 3) 출력의 "실행 가능한 파일"을 검토해 요약한다 4) description 이 160자를 넘으면 트리거를 유지한 채 줄인다(매 세션 로드되므로). 본문은 원본 그대로 둔다 — `.knack-source` 가 있는 스킬은 doctor 가 본문 길이를 검사하지 않는다 5) 설치 단계로 |
 | 새 스킬·룰·훅 만들기 | `knack new skill\|rule\|hook <이름>` → 내용 작성 → 스킬이면 `skills/knack-help/USAGE.md`에 안내 추가 → `knack doctor`로 작성 기준 확인 → `knack test` → 설치 단계로 |
 | 외부 스킬을 하네스로 옮기기 | 사용자가 요청할 때만 `knack adopt skill <이름>` → 설치 단계로 |
-| 외부 스킬 제거 | 가드 훅이 막으므로 직접 지우지 않는다. `knack list skills --all`로 대상·위치를 확인하고, 백업 후 삭제하는 명령을 사용자에게 안내한 뒤 `knack list --all`로 결과를 확인한다 |
+| 외부 스킬 제거 | `knack list skills --all`로 대상·위치를 확인하고 백업 후 삭제한 뒤 `knack list --all`로 결과를 확인한다 |
 | 훅 켜기·끄기 | `knack hook enable\|disable <이름>` → 설치 단계로 |
 | 작업 유형별 모델 변경 | `knack model`로 현재 표 확인 → `knack model set <작업\|main\|tier:이름> <티어\|모델> [--agent] [--effort]` → 설치 단계로. 새 위임 대상이 필요하면 `agents/`에 `task:`를 가진 서브에이전트를 만든다 |
 | 룰 | always 룰은 매 세션 로드되므로 짧게 쓴다. 가끔 필요한 규칙은 on-demand 룰(`when:`에 읽을 시점)로 만든다 |

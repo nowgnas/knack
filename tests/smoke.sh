@@ -36,7 +36,7 @@ check "stack-verify detect.py 회귀 테스트 (Gradle·Maven·.NET 픽스처)" 
 check "mistake-proofing mistakes.py 회귀 테스트 (커밋 원장 집계·2회 판정·enforcement 대조·새 clone)" 'python3 "$KNACK_DIR/tests/test_mistake_proofing.py" 2>/dev/null'
 check "verification-skill link_skill.py 회귀 테스트 (링크·복사 sha256·덮어쓰기 거부)" 'python3 "$KNACK_DIR/tests/test_verification_skill.py" 2>/dev/null'
 check "guard-prod-ops 훅 회귀 테스트 (Claude·Codex 형식, fail-closed)" 'python3 "$KNACK_DIR/tests/test_guard_prod.py" 2>/dev/null'
-check "knack gate CHECK 사전 검사 회귀 테스트 (꺼짐·설정 손상·훅 실패·출력 해석)" 'python3 "$KNACK_DIR/tests/test_gate_guard.py" 2>/dev/null'
+check "knack gate CHECK 실행 회귀 테스트" 'python3 "$KNACK_DIR/tests/test_gate_guard.py" 2>/dev/null'
 for f in "$KNACK_DIR"/skills/*/SKILL.md; do
   d="$(dirname "$f")"; s="$(basename "$d")"
   check "$s: frontmatter name 일치" '[ "$(sed -n "s/^name: *//p" "$f" | head -1)" = "$s" ]'
@@ -121,22 +121,16 @@ check "CLAUDE.md: 작업 유형별 모델 색인" 'contains "$HOME/.claude/CLAUD
 check "Codex AGENTS.md: 기존 내용 보존 + 룰 본문" 'contains "$CODEX_HOME/AGENTS.md" "# existing codex rules" && contains "$CODEX_HOME/AGENTS.md" "# 작업 원칙" && contains "$CODEX_HOME/AGENTS.md" "# 하네스 관리"'
 check "Codex AGENTS.md: frontmatter·on-demand 본문 제외" '! contains "$CODEX_HOME/AGENTS.md" "load: always" && ! contains "$CODEX_HOME/AGENTS.md" "# Git 작업"'
 check "Codex AGENTS.md: 역할 위임 색인 + 상위 모델 권장" 'contains "$CODEX_HOME/AGENTS.md" "\`git-ops\` 역할로 위임 (spawn_agent) · gpt-5.6-sol/medium" && contains "$CODEX_HOME/AGENTS.md" "knack run <작업>"'
-check "Claude 훅: 기존 훅·모델 보존 + guard·guard-prod-ops 추가" 'python3 -c "
+check "Claude 훅: 기존 훅 보존, 차단 훅 기본 비활성화" 'python3 -c "
 import json; d=json.load(open(\"$HOME/.claude/settings.json\"))
 assert d[\"model\"]==\"opus[1m]\" and d[\"hooks\"][\"PermissionRequest\"][0][\"hooks\"][0][\"type\"]==\"http\"
-g={h[\"command\"].split()[-1]: grp for grp in d[\"hooks\"][\"PreToolUse\"] for h in grp[\"hooks\"] if \"--knack-hook\" in h[\"command\"]}
-assert g[\"guard-agent-config\"][\"matcher\"]==\"Write|Edit|MultiEdit|Bash\" and g[\"guard-prod-ops\"][\"matcher\"]==\"Bash\", g"'
-check "Codex 훅: 기존 훅 보존 + guard·guard-prod-ops 추가 (matcher 없음)" 'python3 -c "
+cmds=[h[\"command\"] for grp in d[\"hooks\"].get(\"PreToolUse\", []) for h in grp[\"hooks\"]]
+assert not any(\"--knack-hook guard-\" in c for c in cmds), cmds"'
+check "Codex 훅: 기존 훅 보존, 차단 훅 기본 비활성화" 'python3 -c "
 import json; d=json.load(open(\"$CODEX_HOME/hooks.json\"))
 assert d[\"hooks\"][\"SessionStart\"][0][\"hooks\"][0][\"command\"]==\"echo hi\"
-g={h[\"command\"].split()[-1]: grp for grp in d[\"hooks\"][\"PreToolUse\"] for h in grp[\"hooks\"] if \"--knack-hook\" in h[\"command\"]}
-assert set(g)>={\"guard-agent-config\",\"guard-prod-ops\"} and all(\"matcher\" not in v for v in g.values()), g"'
-
-printf '%s' '{"tool_name":"shell","tool_input":{"command":["bash","-lc","flyway migrate"]}}' > "$TMP/gpo-deny.json"
-printf '%s' '{"tool_name":"Bash","tool_input":{"command":"flyway -url=jdbc:postgresql://localhost/app migrate"}}' > "$TMP/gpo-allow.json"
-GPO="$(python3 -c "import json;d=json.load(open('$CODEX_HOME/hooks.json'));print(next(h['command'] for g in d['hooks']['PreToolUse'] for h in g['hooks'] if 'guard-prod-ops' in h['command']))")"
-check "설치된 guard-prod-ops 명령: 운영 마이그레이션 차단 · 로컬 대상 통과" '
-  eval "$GPO" < "$TMP/gpo-deny.json" | grep -q "\"deny\"" && [ -z "$(eval "$GPO" < "$TMP/gpo-allow.json")" ]'
+cmds=[h[\"command\"] for grp in d[\"hooks\"].get(\"PreToolUse\", []) for h in grp[\"hooks\"]]
+assert not any(\"--knack-hook guard-\" in c for c in cmds), cmds"'
 
 echo "▶ 재설치 (멱등성)"
 snap() { cat "$HOME/.claude/CLAUDE.md" "$CODEX_HOME/AGENTS.md" "$HOME/.claude/settings.json" "$CODEX_HOME/hooks.json" "$CODEX_HOME/config.toml" "$HOME"/.claude/agents/*.md "$ROLES"/*.toml | cksum; }
@@ -232,7 +226,7 @@ printf -- '---\nname: docx\ndescription: app skill\n---\n' > "$DS/skills-plugin/
 check "list: 스킬 설치 상태 (copilot 미사용은 -)" 'contains "$TMP/list.txt" "[✓ ✓ -] bug-fix"'
 check "list: 서브에이전트 (claude·codex)" 'grep -q "\[✓ ✓ -\] git-ops" "$TMP/list.txt"'
 check "list: 룰 on-demand" 'grep -q "\[- - -\] git .*(on-demand)" "$TMP/list.txt"'
-check "list: 훅 설치 상태" 'grep -q "\[✓ ✓ -\] guard-agent-config" "$TMP/list.txt" && grep -q "\[✓ ✓ -\] guard-prod-ops" "$TMP/list.txt"'
+check "list: 차단 훅은 기본 꺼짐" 'grep -q "guard-agent-config.*(off" "$TMP/list.txt" && grep -q "guard-prod-ops.*(off" "$TMP/list.txt"'
 "$H" list --all > "$TMP/list-all.txt"
 check "list --all: 외부 스킬·플러그인 스킬·외부 서브에이전트" 'contains "$TMP/list-all.txt" "my-ext" && contains "$TMP/list-all.txt" "demo:foo" && contains "$TMP/list-all.txt" "my-agent.md"'
 check "list --all: 외부 훅" 'contains "$TMP/list-all.txt" "PermissionRequest" && contains "$TMP/list-all.txt" "echo hi"'
@@ -369,6 +363,31 @@ check "옮긴 뒤 status 전부 OK" '! ri "$MOVED/install.sh" --status --global 
 mv "$MOVED" "$UCLONE"
 
 echo "▶ 개명 마이그레이션 (harness → knack)"
+# 기존 knack 차단 훅을 제거하면서 사용자가 등록한 PreToolUse 훅은 보존한다.
+UPHOME="$TMP/upgrade"; mkdir -p "$UPHOME/.claude" "$UPHOME/.codex"
+python3 - "$KNACK_DIR" "$UPHOME" <<'EOF'
+import json, pathlib, sys
+repo, home = map(pathlib.Path, sys.argv[1:])
+for config in (home / '.claude/settings.json', home / '.codex/hooks.json'):
+    hooks = [{'hooks': [{'type': 'command', 'command': 'echo user-hook'}]}]
+    for name, script in [('guard-agent-config', 'guard.py'), ('guard-prod-ops', 'guard_prod.py')]:
+        hooks.append({'hooks': [{'type': 'command', 'command': f'{repo}/hooks/{name}/{script} --knack-hook {name}'}]})
+    config.write_text(json.dumps({'hooks': {'PreToolUse': hooks}}))
+EOF
+HOME="$UPHOME" CODEX_HOME="$UPHOME/.codex" "$INSTALL" --global --agents claude,codex > "$TMP/upgrade.txt" 2>&1
+check "기존 차단 훅 제거와 사용자 훅 보존 (Claude·Codex)" 'python3 - "$UPHOME" <<EOF
+import json, pathlib, sys
+home = pathlib.Path(sys.argv[1])
+for config in (home / ".claude/settings.json", home / ".codex/hooks.json"):
+    data = json.loads(config.read_text())
+    cmds = [h["command"] for group in data["hooks"].get("PreToolUse", []) for h in group["hooks"]]
+    assert "echo user-hook" in cmds, cmds
+    assert not any("--knack-hook guard-" in c for c in cmds), cmds
+EOF'
+cp "$UPHOME/.claude/settings.json" "$TMP/upgrade-claude.json"
+cp "$UPHOME/.codex/hooks.json" "$TMP/upgrade-codex.json"
+HOME="$UPHOME" CODEX_HOME="$UPHOME/.codex" "$INSTALL" --global --agents claude,codex > "$TMP/upgrade-again.txt" 2>&1
+check "기존 훅 제거 후 재설치 멱등" 'json_eq "$UPHOME/.claude/settings.json" "$TMP/upgrade-claude.json" && json_eq "$UPHOME/.codex/hooks.json" "$TMP/upgrade-codex.json"'
 # 개명 전 이름으로 설치된 흔적을 만들고, 새 설치기가 걷어내는지 본다
 MHOME="$TMP/mig"; mkdir -p "$MHOME/.claude/skills" "$MHOME/.agents/skills" "$MHOME/.local/bin" "$MHOME/.codex/harness/agents"
 ln -s "$KNACK_DIR/skills/harness-help" "$MHOME/.claude/skills/harness-help"        # 같은 레포 (개명으로 끊어짐)
@@ -403,7 +422,7 @@ d=json.load(open(\"$MHOME/.claude/settings.json\"))
 cmds=[h[\"command\"] for g in d[\"hooks\"][\"PreToolUse\"] for h in g[\"hooks\"]]
 assert any(c==\"echo mine\" for c in cmds), cmds
 assert not any(\"--harness-hook\" in c for c in cmds), cmds
-assert any(\"--knack-hook guard-agent-config\" in c for c in cmds), cmds"'
+assert not any(\"--knack-hook guard-agent-config\" in c for c in cmds), cmds"'
 check "구 Codex 역할 폴더 제거" '[ ! -d "$MHOME/.codex/harness/agents" ]'
 # 구 생성물 표식(harness:generated)을 못 알아보면 서브에이전트가 SKIP 되어 install 로 고쳐지지 않는다
 MHOME2="$TMP/mig2"; mkdir -p "$MHOME2/.claude/agents" "$MHOME2/.codex"
@@ -672,21 +691,12 @@ check "gate status: 게이트 정의를 바꾸면 이전 증거 무효" '[ $rc -
 GP="$GR/.design/x/prod.md"; mkdir -p "$GR/tools"
 printf '#!/bin/sh\ntouch "$(dirname "$0")/../ran.flag"; echo migrated\n' > "$GR/tools/flyway"; chmod +x "$GR/tools/flyway"
 cat > "$GP" <<'EOF'
-- [ ] G1: 대상 미명시 마이그레이션 CHECK 는 guard-prod-ops 가 실행 전에 막는다
+- [ ] G1: 가짜 명령을 별도 사전 검사 없이 실행한다
   CHECK: PATH="$PWD/tools:$PATH" flyway migrate
   EXPECT: migrated
 EOF
 rc=0; "$K" gate run "$GP" > "$TMP/gp1.txt" 2>&1 || rc=$?
-check "gate run: CHECK 도 guard-prod-ops 검사 — 막히면 실행하지 않고 실패" '[ $rc -eq 1 ] && [ ! -e "$GR/ran.flag" ] && grep -q "guard=deny" "$GP" && contains "$TMP/gp1.txt" "guard-prod-ops"'
-rc=0; KNACK_GUARD_PROD=off "$K" gate run "$GP" > /dev/null 2>&1 || rc=$?
-check "gate run: 명령 앞 KNACK_GUARD_PROD=off 로는 우회되지 않음" '[ $rc -eq 1 ] && [ ! -e "$GR/ran.flag" ] && grep -q "guard=deny" "$GP"'
-cat > "$GP" <<'EOF'
-- [ ] G1: 로컬 대상 마이그레이션 CHECK 는 그대로 실행한다
-  CHECK: PATH="$PWD/tools:$PATH" flyway -url=jdbc:postgresql://localhost:5432/app migrate
-  EXPECT: migrated
-EOF
-rc=0; "$K" gate run "$GP" > /dev/null 2>&1 || rc=$?
-check "gate run: 로컬 대상 CHECK 는 통과·실행" '[ $rc -eq 0 ] && [ -e "$GR/ran.flag" ] && grep -q "result=pass" "$GP"'
+check "gate run: CHECK 명령을 실행하고 결과 기록" '[ $rc -eq 0 ] && [ -e "$GR/ran.flag" ] && grep -q "result=pass" "$GP"'
 rm -f "$GR/ran.flag" "$GP" "$GR/tools/flyway"; rmdir "$GR/tools"
 B="$GR/.design/x/bad.md"
 cat > "$B" <<'EOF'

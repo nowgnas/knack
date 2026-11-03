@@ -1,7 +1,7 @@
 {
   "name": "guard-agent-config",
   "description": "에이전트 설정 폴더(스킬·서브에이전트)에 직접 설치하는 것을 막고 knack add/install 로 안내한다.",
-  "enabled": true,
+  "enabled": false,
   "command": "guard.py",
   "targets": {
     "claude": { "event": "PreToolUse", "matcher": "Write|Edit|MultiEdit|Bash", "timeout": 10 },
