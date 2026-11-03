@@ -207,6 +207,8 @@ class GuardProd(unittest.TestCase):
     def test_non_exec_tools_pass(self):
         patch = "*** Begin Patch\n*** Add File: run.sh\n+SPRING_PROFILES_ACTIVE=prod java -jar app.jar\n*** End Patch"
         self.assertEqual(run({"tool_name": "apply_patch", "tool_input": {"input": patch}}), "allow")
+        dynamic_patch = patch + chr(36) + "(echo value)"
+        self.assertEqual(run({"tool_name": "apply_patch", "tool_input": {"cmd": dynamic_patch}}), "allow")
         self.assertEqual(run({"tool_name": "Write", "tool_input": {"file_path": "a.sh",
                                                                     "content": "flyway migrate"}}), "allow")
         self.assertEqual(run({"tool_name": "mcp__db__query", "tool_input": {"sql": "select 1"}}), "allow")
@@ -254,6 +256,14 @@ class GuardProd(unittest.TestCase):
                 self.assertTrue(all(r.startswith("deny") for r in self.both(cmd, d)), cmd)
         self.assertEqual(self.both("./local.sh", d), ("allow", "allow"))
         self.assertEqual(self.both("./missing.sh", d), ("allow", "allow"))
+
+    def test_safe_nested_command_substitution_in_script(self):
+        d = tempfile.mkdtemp()
+        os.makedirs(os.path.join(d, ".git"))
+        with open(os.path.join(d, "check.sh"), "w") as f:
+            f.write('#!/bin/bash\nROOT="' + chr(36) + '(cd "' + chr(36) + '(dirname "' + chr(36) +
+                    '{BASH_SOURCE[0]}")/.." && pwd)"\necho "$ROOT"\n')
+        self.assertEqual(self.both("bash check.sh", d), ("allow", "allow"))
 
     def test_gradle_generic_liquibase_tasks(self):
         d = tempfile.mkdtemp()

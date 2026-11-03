@@ -442,7 +442,7 @@ def check_command(cmd, cwd, env, depth=0, seen=None, script_dir=None):
             risky = STRONG.search(subs)
         else:
             risky = STRONG.search(unq) or any(STRONG.search(t) or t.startswith(("-P", "-D")) for t in sub_toks)
-        if dynamic and (STRONG.search(cmd) or sub_toks) and (name == "eval" or rest[0].startswith("$")
+        if dynamic and (STRONG.search(cmd) or risky) and (name == "eval" or rest[0].startswith("$")
                                                            or (name in SHELLS and STRONG.search(cmd)) or risky):
             raise Deny("위험 명령과 함께 쓴 동적 구문(eval, $( ), 백틱, | sh)은 판단할 수 없습니다")
         if name in ("kubectl", "oc", "docker", "podman") and "exec" in args:  # 컨테이너 안 실행은 대상 불명 → 도구만 보고 판정
@@ -528,6 +528,8 @@ def check_script(path, cwd, env, depth, seen, script_dir=None, need_shebang=Fals
 def commands(payload):
     """검사할 명령 목록. 실행 도구가 아니면 빈 목록. 셸 도구인데 명령이 없으면 Deny."""
     tool = str(payload.get("tool_name") or "").lower()
+    if tool not in SHELL_TOOLS:
+        return []
     ti = payload.get("tool_input")
     if not isinstance(ti, dict):
         if tool in SHELL_TOOLS:
