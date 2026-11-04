@@ -183,6 +183,17 @@ check "model: 작업·티어·모델·위임 표" 'grep -qE "^  git +standard +s
 check "model get (claude)" '[ "$("$H" model get git --agent claude)" = sonnet ]'
 check "model get --format flags (codex)" '[ "$("$H" model get implement --agent codex --format flags)" = "-m gpt-6-astra -c model_reasoning_effort=high" ]'
 check "run implement → codex exec astra/high (dry-run)" '"$H" run implement --agent codex --print --dry-run -- "구현" 2>/dev/null | grep -q "^codex exec -m gpt-6-astra -c model_reasoning_effort=high "'
+cat > "$TMP/fake-codex" <<'EOF'
+#!/usr/bin/env python3
+import json, sys
+print(json.dumps({"args": sys.argv[1:], "input": sys.stdin.read()}))
+EOF
+chmod +x "$TMP/fake-codex"
+printf '비밀 문장\n두 번째 줄\n' > "$TMP/prompt.txt"
+KNACK_CODEX_BIN="$TMP/fake-codex" "$H" run implement --agent codex --print --prompt-file "$TMP/prompt.txt" > "$TMP/run-stdin.json" 2>/dev/null
+check "run: 프롬프트 파일을 Codex stdin으로 전달" 'python3 -c "import json; d=json.load(open(\"$TMP/run-stdin.json\")); assert d[\"args\"][-1] == \"-\" and d[\"input\"] == \"비밀 문장\\n두 번째 줄\" and not any(\"비밀\" in a for a in d[\"args\"])"'
+printf '표준 입력' | KNACK_CODEX_BIN="$TMP/fake-codex" "$H" run implement --agent codex --print --prompt-file - > "$TMP/run-stdin.json" 2>/dev/null
+check "run: 표준입력 프롬프트 전달" 'python3 -c "import json; assert json.load(open(\"$TMP/run-stdin.json\"))[\"input\"] == \"표준 입력\""'
 check "run: 알 수 없는 작업은 실패" '! "$H" run nope --dry-run -- x >/dev/null 2>&1'
 
 # 후보 목록·머신별 오버라이드 (설치된 모델이 PC 마다 다른 경우)
@@ -197,7 +208,7 @@ json.dump(cfg, open(sys.argv[1], "w"))
 PYEOF
 check "후보 목록: 캐시에 없는 첫 후보를 건너뛴다" '[ "$("$H" model get design --agent codex)" = "gpt-5.6-sol" ]'
 check "모델이 지원하지 않는 effort 는 떨군다" '[ "$("$H" model get design --agent codex --format flags)" = "-m gpt-5.6-sol" ]'
-check "후보가 전부 없으면 run 이 모델 플래그를 뺀다" '"$H" run lookup --agent codex --print --dry-run -- x 2>/dev/null | grep -q "^codex exec x$"'
+check "후보가 전부 없으면 run 이 모델 플래그를 뺀다" '"$H" run lookup --agent codex --print --dry-run -- x 2>/dev/null | grep -q "^codex exec -$"'
 check "doctor: 설치된 후보가 없으면 경고" '"$H" doctor 2>&1 | grep -q "설치된 후보가 없음"'
 check "model list: 건너뛴 후보 표시" '"$H" model | grep -q "설치되지 않아 건너뛴 후보: .*gpt-6-astra"'
 mkdir -p "$HOME/.config/knack"
@@ -548,6 +559,48 @@ printf -- '---\nname: beta\ndescription: beta skill for test\n---\n# B\n' > "$TM
 check "add: 여러 스킬이면 --subdir 요구 (exit 2)" '[ $rc -eq 2 ] && contains "$TMP/add1.txt" "--subdir alpha"'
 "$CH" add skill "$TMP/ext" --subdir alpha > /dev/null
 check "add 로컬 경로" '[ -f "$C/skills/alpha/SKILL.md" ] && contains "$C/skills/alpha/.knack-source" "$TMP/ext"'
+printf 'local\n' > "$TMP/ext/alpha/local.md"
+ln -s local.md "$TMP/ext/alpha/inside.md"
+"$CH" add skill "$TMP/ext/alpha" --replace > /dev/null
+check "add: 내부 상대 링크 허용" '[ -L "$C/skills/alpha/inside.md" ] && [ "$(cat "$C/skills/alpha/inside.md")" = local ]'
+mkdir -p "$TMP/ext/alpha/sub/deep"
+ln -s sub/deep "$TMP/ext/alpha/jump"
+ln -s jump/../../local.md "$TMP/ext/alpha/valid.md"
+"$CH" add skill "$TMP/ext/alpha" --replace > /dev/null
+check "add: 내부 디렉터리 링크와 상위 이동 허용" '[ "$(cat "$C/skills/alpha/valid.md")" = local ]'
+ln -s "$TMP/ext/beta/SKILL.md" "$TMP/ext/alpha/outside.md"
+check "add: 외부 링크 거부와 기존 스킬 보존" '! "$CH" add skill "$TMP/ext/alpha" --replace > "$TMP/link-error.txt" 2>&1 && [ -f "$C/skills/alpha/SKILL.md" ] && [ ! -L "$C/skills/alpha/outside.md" ] && contains "$TMP/link-error.txt" "심볼릭 링크"'
+rm "$TMP/ext/alpha/outside.md"
+ln -s ../beta/SKILL.md "$TMP/ext/alpha/outside.md"
+check "add: 외부 상대 링크 거부" '! "$CH" add skill "$TMP/ext/alpha" --replace > /dev/null 2>&1 && [ -f "$C/skills/alpha/SKILL.md" ]'
+rm "$TMP/ext/alpha/outside.md"
+ln -s missing.md "$TMP/ext/alpha/broken.md"
+check "add: 끊어진 링크 거부" '! "$CH" add skill "$TMP/ext/alpha" --replace > /dev/null 2>&1 && [ -f "$C/skills/alpha/SKILL.md" ]'
+rm "$TMP/ext/alpha/broken.md"
+ln -s ../alpha/local.md "$TMP/ext/beta/back.md"
+ln -s ../beta/back.md "$TMP/ext/alpha/roundtrip.md"
+check "add: 바깥을 경유하는 내부 링크 거부" '! "$CH" add skill "$TMP/ext/alpha" --replace > /dev/null 2>&1 && [ -f "$C/skills/alpha/SKILL.md" ]'
+rm "$TMP/ext/alpha/roundtrip.md"
+ln -s ../alpha/local.md "$TMP/ext/alpha/roundtrip.md"
+check "add: 상위 폴더 경유 후 원본으로 돌아오는 링크 거부" '! "$CH" add skill "$TMP/ext/alpha" --replace > /dev/null 2>&1 && [ -f "$C/skills/alpha/SKILL.md" ]'
+rm "$TMP/ext/alpha/roundtrip.md"
+mkdir -p "$TMP/ext/alpha/deep"
+ln -s .. "$TMP/ext/alpha/deep/shortcut"
+ln -s deep/shortcut/../alpha/local.md "$TMP/ext/alpha/roundtrip.md"
+check "add: 디렉터리 링크를 거쳐 경계를 벗어나는 링크 거부" '! "$CH" add skill "$TMP/ext/alpha" --replace > /dev/null 2>&1 && [ -f "$C/skills/alpha/SKILL.md" ]'
+rm "$TMP/ext/alpha/roundtrip.md"
+mkdir -p "$TMP/ext/alpha/.git"
+printf 'ignored' > "$TMP/ext/alpha/.git/config"
+ln -s .git/config "$TMP/ext/alpha/ignored.md"
+check "add: 복사에서 제외되는 링크 대상 거부" '! "$CH" add skill "$TMP/ext/alpha" --replace > /dev/null 2>&1 && [ -f "$C/skills/alpha/SKILL.md" ]'
+rm "$TMP/ext/alpha/ignored.md"
+ln -s .git/../local.md "$TMP/ext/alpha/ignored.md"
+check "add: 복사에서 제외되는 폴더를 경유하는 링크 거부" '! "$CH" add skill "$TMP/ext/alpha" --replace > /dev/null 2>&1 && [ -f "$C/skills/alpha/SKILL.md" ]'
+mkdir -p "$TMP/external-skill"
+printf -- '---\nname: linked-source\ndescription: linked source for test\n---\n' > "$TMP/external-skill/SKILL.md"
+ln -s "$TMP/external-skill" "$TMP/ext/linked-source"
+"$CH" add skill "$TMP/ext" --subdir linked-source > /dev/null
+check "add: 원본 폴더 링크의 출처 기록" 'python3 -c "import json; assert json.load(open(\"$C/skills/linked-source/.knack-source\"))[\"subdir\"] == \"linked-source\""'
 mkdir -p "$TMP/extrepo/skills/gamma"
 printf -- '---\nname: gamma\ndescription: gamma skill for test\n---\n# G\n' > "$TMP/extrepo/skills/gamma/SKILL.md"
 printf '#!/bin/sh\necho hi\n' > "$TMP/extrepo/skills/gamma/run.sh"; chmod +x "$TMP/extrepo/skills/gamma/run.sh"
@@ -573,7 +626,9 @@ check "model set <작업> <티어>" '[ "$("$CH" model get docs --agent codex)" =
 check "model set 잘못된 대상은 실패" '! "$CH" model set nope deep >/dev/null 2>&1'
 "$CH" model set main fast --agent codex > /dev/null
 "$CH" model set main sonnet --agent claude > /dev/null
-"$C/install.sh" --global --agents claude,codex > "$TMP/out8.txt"
+"$C/install.sh" --global --agents claude,codex > "$TMP/out8-default.txt"
+check "세션 모델 기본 보존" 'python3 -c "import json; assert json.load(open(\"$HOME/.claude/settings.json\"))[\"model\"]==\"opus[1m]\"" && grep -q "^model_reasoning_effort = \"medium\"$" "$CODEX_HOME/config.toml"'
+"$C/install.sh" --global --agents claude,codex --with-main > "$TMP/out8.txt"
 check "세션 모델 반영: Claude settings.json" 'python3 -c "import json; assert json.load(open(\"$HOME/.claude/settings.json\"))[\"model\"]==\"sonnet\""'
 check "세션 모델 반영: Codex config.toml ($TOML_NOTE)" 'grep -q "^model_reasoning_effort = \"low\"$" "$CODEX_HOME/config.toml" && grep -q "^model = \"gpt-5.6-luna\"$" "$CODEX_HOME/config.toml" && contains "$CODEX_HOME/config.toml" "[mcp_servers.cx]" && toml_ok "$CODEX_HOME/config.toml"'
 check "변경된 작업 모델이 서브에이전트에 반영" 'grep -q "^model: haiku$" "$HOME/.claude/agents/git-ops.md"'

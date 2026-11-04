@@ -6,6 +6,7 @@ description: API·메시지·배치의 실행 흐름을 진입점부터 DB까지
 # Trace Flow
 
 방향이 두 개다. 스택별 세부(Spring, .NET): `knack show ref tracing --section <번호>`.
+CLI가 없으면 `references/tracing.md`를 직접 읽는다.
 
 | 방향 | 입력 | 답하는 질문 |
 |---|---|---|

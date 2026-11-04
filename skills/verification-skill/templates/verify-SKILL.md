@@ -10,7 +10,7 @@ description: <앱>(<Spring Boot|ASP.NET Core> <표면: REST API 등>)를 로컬�
 기능 목록: [features/README.md](features/README.md) · 실행 기록: [EVIDENCE.md](EVIDENCE.md)
 
 ## 띄우기
-- 기동 전: 앱·의존 자원 포트가 모두 비었는지(`<lsof -iTCP:8080 -iTCP:5432 -sTCP:LISTEN>`), 고른 프로파일의 datasource·브로커가 localhost/컨테이너인지 확인한다. compose 파일에 고정 `container_name`이 있으면 멈추고 보고한다
+- 기동 전: 앱·의존 자원 포트가 모두 비었는지(`<lsof -iTCP:8080 -iTCP:5432 -sTCP:LISTEN>`), 고른 프로파일의 datasource·브로커가 localhost/컨테이너인지 확인한다. 유효한 compose 설정에 고정 `container_name`이나 프로젝트 이름과 무관한 볼륨 `name:`이 있으면 멈추고 보고한다. 외부 볼륨도 확인한다
 - 의존 자원: 실행마다 새 프로젝트 이름(`verify-<앱>-<타임스탬프>`)을 정해 EVIDENCE.md에 먼저 적고, 그 이름을 명령에 그대로 쓴다: `<docker compose -p verify-<앱>-<타임스탬프> -f compose.yaml up -d db>` — 준비 신호: `<pg_isready -h localhost -p 5432>`
   - Spring Boot docker-compose 지원(3.1+)을 쓰는 레포면 `<spring.docker.compose.enabled=false>`로 끄고 위 명령으로 띄운다
 - 앱: `<./gradlew bootRun --args='--spring.profiles.active=local' | dotnet run --project src/Api --launch-profile <로컬 프로필> | ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/Api --no-launch-profile>`

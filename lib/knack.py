@@ -715,8 +715,6 @@ def cmd_doctor(_a):
         text = CODEX_CONFIG.read_text(encoding="utf-8")
         if set_block(restore_toml_start(text), TOML_START, TOML_END, codex_roles_block()) != text:
             missing.insert(0, "codex:역할 블록")
-        if codex_main_config(text, cfg) != text:
-            missing.insert(0, "codex:기본 모델")
     if missing:
         warn(f"미설치·갱신 필요 {len(missing)}건: {', '.join(missing[:8])} → knack install")
     else:
@@ -785,6 +783,28 @@ def cmd_add(a):
             fail("스킬이 여러 개입니다. --subdir 로 하나를 지정하세요:\n" + "\n".join(
                 f"  --subdir {c.relative_to(base)}  ({read_md(c / 'SKILL.md')[0].get('name', c.name)})" for c in cands), 2)
         src = cands[0]
+        source_subdir = str(src.relative_to(base)) if src != base else ""
+        src = src.resolve()
+        for link in src.rglob("*"):
+            if not link.is_symlink():
+                continue
+            try:
+                raw = os.readlink(link)
+                if os.path.isabs(raw):
+                    raise ValueError("절대 링크")
+                current = link.parent
+                for part in Path(raw).parts:
+                    if part == ".git":
+                        raise ValueError("복사에서 제외되는 경로")
+                    current = (current / part).resolve(strict=True)
+                    if ".git" in current.relative_to(src).parts:
+                        raise ValueError("복사에서 제외되는 경로")
+                target = link.resolve(strict=True)
+                target.relative_to(src)
+                if ".git" in target.relative_to(src).parts:
+                    raise ValueError("복사에서 제외되는 경로")
+            except (OSError, RuntimeError, ValueError):
+                fail(f"스킬 밖을 가리키거나 복사 후 사용할 수 없는 심볼릭 링크: {link} → {os.readlink(link)}", 2)
         meta, _ = read_md(src / "SKILL.md")
         name = a.name or meta.get("name") or src.name
         if not NAME_RE.fullmatch(name):
@@ -799,7 +819,7 @@ def cmd_add(a):
         shutil.copytree(src, dest, symlinks=True, ignore=shutil.ignore_patterns(".git"))
         if meta.get("name") != name:
             set_frontmatter_name(dest / "SKILL.md", name)
-        write_source(dest, {"source": a.source, "subdir": str(src.relative_to(base)) if src != base else "", "commit": commit})
+        write_source(dest, {"source": a.source, "subdir": source_subdir, "commit": commit})
 
         files = [p for p in dest.rglob("*") if p.is_file() and p.name not in (".knack-source", ".harness-source")]
         runnable = [rel(p) for p in files if os.access(p, os.X_OK) or p.suffix in (".sh", ".py", ".js", ".ts", ".rb")]
@@ -1391,14 +1411,26 @@ def cmd_model_set(cfg, a):
     print(f"변경: {target} ← {value}{f' ({a.effort})' if a.effort else ''}" + (f" [{a.agent}]" if a.agent else ""))
     for w in model_warnings(cfg):
         print(f"  ⚠ {w}")
-    print("적용: knack install")
+    print("적용: knack install --with-main" if target == "main" else "적용: knack install")
 
 
 def cmd_run(a):
     cfg = load_models()
-    prompt = " ".join(a.prompt).strip()
+    if a.prompt_file and a.prompt:
+        fail("--prompt-file 과 프롬프트 인자는 함께 쓸 수 없습니다.", 2)
+    if a.prompt_file:
+        if not a.print or (a.agent and a.agent != "codex"):
+            fail("--prompt-file 은 Codex --print 에서만 사용할 수 있습니다.", 2)
+        try:
+            prompt = (sys.stdin.read() if a.prompt_file == "-" else Path(a.prompt_file).read_text(encoding="utf-8")).strip()
+        except OSError as e:
+            fail(f"프롬프트 파일 읽기 실패: {e}", 2)
+    else:
+        prompt = " ".join(a.prompt).strip()
     task = a.task
     agent = a.agent or ("claude" if shutil.which("claude") else "codex")
+    if a.prompt_file and agent != "codex":
+        fail("--prompt-file 은 Codex --print 에서만 사용할 수 있습니다. --agent codex 를 지정하세요.", 2)
     model, effort = resolve_model(cfg, task, agent)
     if not model:
         fail(f"{agent}/{task} 모델이 models.json 에 없습니다.")
@@ -1411,7 +1443,10 @@ def cmd_run(a):
         cmd = [*agent_cmd(agent), *flags, *(["--print"] if a.print else [])]
     else:
         cmd = [*agent_cmd(agent), *(["exec"] if a.print else []), *flags]
-    if prompt:
+    stdin_prompt = bool(prompt and agent == "codex" and a.print)
+    if stdin_prompt:
+        cmd.append("-")
+    elif prompt:
         cmd.append(prompt)
     elif a.print:
         fail("--print 에는 프롬프트가 필요합니다.", 2)
@@ -1419,6 +1454,12 @@ def cmd_run(a):
     if a.dry_run:
         print(shlex.join(cmd))
         return
+    if stdin_prompt:
+        with tempfile.TemporaryFile(mode="w+", encoding="utf-8") as prompt_file:
+            prompt_file.write(prompt)
+            prompt_file.seek(0)
+            os.dup2(prompt_file.fileno(), 0)
+            os.execvp(cmd[0], cmd)
     os.execvp(cmd[0], cmd)
 
 
@@ -1645,6 +1686,7 @@ def main():
     s.add_argument("prompt", nargs="*")
     s.add_argument("--agent", choices=AGENTS_SUPPORTED)
     s.add_argument("--print", action="store_true", help="비대화 실행 (claude -p / codex exec)")
+    s.add_argument("--prompt-file", help="Codex --print 프롬프트 파일 (표준입력은 -)")
     s.add_argument("--dry-run", action="store_true", help="실행할 명령만 출력")
 
     s = sub.add_parser("models-sync")
@@ -1694,6 +1736,7 @@ def main():
     s.add_argument("action", choices=("status", "run", "reverify"))
     s.add_argument("file", help="GATES.md 경로")
     s.add_argument("--timeout", type=int, default=600, help="게이트당 제한 시간(초)")
+    s.add_argument("--strict", action="store_true", help="린트 경고가 있으면 종료 코드 1")
 
     a, extra = p.parse_known_args()
     extra = [x for x in extra if x != "--"]

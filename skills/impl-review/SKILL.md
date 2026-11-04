@@ -25,7 +25,7 @@ overlaps: mattpocock-skills:code-review, engineering:code-review
 | 환경 | 방법 |
 |---|---|
 | Claude Code | `impl-reviewer` 서브에이전트에 위임 (모델은 `models.json`의 review 작업) |
-| Codex | 새 세션: `codex exec -s read-only -C <레포 루트> $(knack model get review --agent codex --format flags) "<리뷰 프롬프트>"` |
+| Codex | 새 세션: `codex exec -s read-only -C <레포 루트> $(knack model get review --agent codex --format flags) - < <프롬프트 파일>` |
 | 둘 다 불가 | 체크리스트로 직접 리뷰하고 결과에 **"독립 리뷰 아님"** 명시 |
 
 리뷰 프롬프트 (값을 채워서 그대로 쓴다):

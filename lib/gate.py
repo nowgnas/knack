@@ -204,7 +204,7 @@ def lint(gates):
     return warns
 
 
-def report(path, gates, abandons):
+def report(path, gates, abandons, strict=False):
     auto = sum(g.runnable for g in gates)
     print(f"GATES {path} — {len(gates)}개 (자동 {auto} · 수동 {len(gates) - auto})")
     unmet = 0
@@ -227,13 +227,16 @@ def report(path, gates, abandons):
         else:
             why = "증거 없음"
         print(f"  ✗ {g.id} [{kind}] {g.title} — {why}")
-    for w in lint(gates):
+    warnings = lint(gates)
+    for w in warnings:
         print(f"  ! {w}")
     parts = []
     if unmet:
         parts.append(f"UNMET {unmet}")
     if abandons:
         parts.append(f"HANDOFF REQUIRED (포기 {len(abandons)}) — 완료가 아니라 인계로 보고")
+    if strict and warnings:
+        parts.append(f"LINT WARNINGS {len(warnings)}")
     print("결과: " + (" · ".join(parts) if parts else "ALL MET"))
     return 1 if parts else 0
 
@@ -269,4 +272,4 @@ def cmd_gate(a):
         if results:
             path.write_text("".join(lines), encoding="utf-8")
             lines, gates, abandons, errors = parse(path.read_text(encoding="utf-8"))
-    sys.exit(report(path, gates, abandons))
+    sys.exit(report(path, gates, abandons, a.strict))
