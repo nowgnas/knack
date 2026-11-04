@@ -17,7 +17,7 @@ overlaps: mattpocock-skills:code-review, engineering:code-review
 | 기준 문서 | `.design/<slug>/PLAN.md` 또는 `BUGFIX.md`. 없으면(경량·단독 요청) 사용자 요청을 성공 기준 3~5줄로 정리 |
 | 완료 게이트 | 고위험이면 `.design/<slug>/GATES.md`, 아니면 "없음" |
 | 레퍼런스 기능 | PLAN.md 4절의 경로 |
-| 체크리스트 | `references/review-checklist.md`의 **절대 경로** (`knack show ref review-checklist --path`) |
+| 체크리스트 | 이 스킬의 `references/review-checklist.md` 절대 경로 (`knack show ref review-checklist --path`, CLI가 없으면 파일 경로를 직접 쓴다) |
 
 구현 중 고민이나 "이렇게 한 이유"는 넘기지 않는다. 설계 결정은 PLAN.md 8절 결정 이력으로 충분하다.
 

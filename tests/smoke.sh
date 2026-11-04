@@ -194,6 +194,13 @@ KNACK_CODEX_BIN="$TMP/fake-codex" "$H" run implement --agent codex --print --pro
 check "run: 프롬프트 파일을 Codex stdin으로 전달" 'python3 -c "import json; d=json.load(open(\"$TMP/run-stdin.json\")); assert d[\"args\"][-1] == \"-\" and d[\"input\"] == \"비밀 문장\\n두 번째 줄\" and not any(\"비밀\" in a for a in d[\"args\"])"'
 printf '표준 입력' | KNACK_CODEX_BIN="$TMP/fake-codex" "$H" run implement --agent codex --print --prompt-file - > "$TMP/run-stdin.json" 2>/dev/null
 check "run: 표준입력 프롬프트 전달" 'python3 -c "import json; assert json.load(open(\"$TMP/run-stdin.json\"))[\"input\"] == \"표준 입력\""'
+KNACK_CLAUDE_BIN="$TMP/fake-codex" "$H" run implement --agent claude --print --prompt-file "$TMP/prompt.txt" > "$TMP/run-claude.json" 2>/dev/null
+check "run: Claude 프롬프트 파일을 stdin으로 전달" 'python3 -c "import json; d=json.load(open(\"$TMP/run-claude.json\")); assert \"--print\" in d[\"args\"] and d[\"input\"] == \"비밀 문장\\n두 번째 줄\" and not any(\"비밀\" in a for a in d[\"args\"])"'
+printf '표준 입력' | KNACK_CLAUDE_BIN="$TMP/fake-codex" "$H" run implement --agent claude --print --prompt-file - > "$TMP/run-claude.json" 2>/dev/null
+check "run: Claude 표준입력 프롬프트 전달" 'python3 -c "import json; assert json.load(open(\"$TMP/run-claude.json\"))[\"input\"] == \"표준 입력\""'
+printf '입력 문맥' | KNACK_CLAUDE_BIN="$TMP/fake-codex" "$H" run implement --agent claude --print -- "요약" > "$TMP/run-claude.json" 2>/dev/null
+check "run: Claude 인자 프롬프트와 파이프 입력 유지" 'python3 -c "import json; d=json.load(open(\"$TMP/run-claude.json\")); assert d[\"input\"] == \"입력 문맥\" and \"요약\" in d[\"args\"]"'
+check "run: 대화형 프롬프트 파일은 거부" '! "$H" run implement --agent claude --prompt-file "$TMP/prompt.txt" > /dev/null 2>&1'
 check "run: 알 수 없는 작업은 실패" '! "$H" run nope --dry-run -- x >/dev/null 2>&1'
 
 # 후보 목록·머신별 오버라이드 (설치된 모델이 PC 마다 다른 경우)

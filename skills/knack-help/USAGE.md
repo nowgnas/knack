@@ -161,7 +161,7 @@ knack 은 백엔드 개발용 개인 에이전트 하네스입니다. 에이전�
 
 - 커밋·푸시·PR은 `git-ops`, 탐색은 `repo-explorer`, 독립 리뷰는 `impl-reviewer`에 위임되고, 설계·구현은 세션 모델로 진행합니다.
 - 스크립트로 고르기: `knack model get <작업> --agent codex --format flags`, `knack run <작업> -- "<요청>"`(작업 유형에 맞는 모델로 새 세션 실행). 작업 유형은 `knack model list`로 확인합니다.
-- Codex 비대화 실행에서 프롬프트를 인자에 노출하지 않으려면 `knack run implement --agent codex --print --prompt-file <파일>` 또는 `--prompt-file -`로 표준입력을 사용합니다. 인자로 넘긴 프롬프트는 `knack run`을 호출할 때 노출될 수 있습니다.
+- Claude·Codex 비대화 실행에서 프롬프트를 인자에 노출하지 않으려면 `knack run implement --agent claude --print --prompt-file <파일>` 또는 `--prompt-file -`로 표준입력을 사용합니다. 인자로 넘긴 프롬프트는 `knack run`을 호출할 때 노출될 수 있습니다. 대화형 실행의 초기 프롬프트는 에이전트에 인자로 전달되므로 민감한 내용은 실행 후 직접 입력하세요.
 - 바꾸기: `knack model set git haiku --agent claude`, `knack model set implement deep` → `knack install`. 세션 기본 모델은 `knack model set main deep --agent codex` → `knack install --with-main`.
 - **PC마다 설치된 모델이 다를 때**: 모델을 후보 목록으로 적으면(`knack model set tier:deep "gpt-6-astra,gpt-6-sol" --agent codex --effort high`) 설치된 첫 모델을 씁니다. Codex는 `~/.codex/models_cache.json`으로 설치 여부를 확인하고, 지원하지 않는 effort는 떨굽니다. Claude 별칭(`opus`·`sonnet`·`haiku`)은 CLI가 풀어 주므로 확인 대상이 아닙니다.
 - 후보가 전부 없으면 `knack run`은 모델 플래그 없이 CLI 기본값으로 실행하고 알립니다. `knack doctor`도 경고합니다.
