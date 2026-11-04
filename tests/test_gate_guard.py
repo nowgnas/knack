@@ -3,6 +3,8 @@
 import sys
 import tempfile
 import unittest
+import contextlib
+import io
 from pathlib import Path
 from unittest.mock import patch
 
@@ -12,6 +14,14 @@ import gate  # noqa: E402
 
 
 class GateExecution(unittest.TestCase):
+    def test_strict_lint_affects_exit_status(self):
+        item = gate.Gate("G1", "fixed output", True, 0)
+        item.attrs = {"CHECK": "echo ok", "EXPECT": "ok"}
+        item.attrs["EVIDENCE"] = f"auto-v1 def={item.digest()} result=pass"
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(gate.report("fixture", [item], {}, False), 0)
+            self.assertEqual(gate.report("fixture", [item], {}, True), 1)
+
     def test_check_runs_without_guard_inspection(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

@@ -30,6 +30,7 @@ PROJECT=""
 AGENTS=""
 DRY=0
 FORCE=0
+WITH_MAIN=0
 BACKUP_DIR="$HOME/.knack-backups/$(date +%Y%m%d-%H%M%S)"
 N_SKIP=0
 N_CHANGE=0
@@ -46,6 +47,7 @@ usage() {
   --reinstall           제거 후 다시 설치 (설치 상태가 꼬였거나 다른 클론으로 옮길 때)
   --dry-run             변경하지 않고 무엇이 바뀔지만 출력
   --force               기존 파일과 충돌 시 백업(~/.knack-backups) 후 교체
+  --with-main           전역 설치에서 세션 기본 모델도 models.json 값으로 동기화
   -h, --help            도움말
 EOF
 }
@@ -62,6 +64,7 @@ while [ $# -gt 0 ]; do
     --reinstall) REINSTALL=1 ;;
     --dry-run) DRY=1; PASS_ARGS=(${PASS_ARGS[@]+"${PASS_ARGS[@]}"} "$1") ;;
     --force) FORCE=1; PASS_ARGS=(${PASS_ARGS[@]+"${PASS_ARGS[@]}"} "$1") ;;
+    --with-main) WITH_MAIN=1; PASS_ARGS=(${PASS_ARGS[@]+"${PASS_ARGS[@]}"} "$1") ;;
     -h|--help) usage; exit 0 ;;
     *) echo "알 수 없는 옵션: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -265,7 +268,7 @@ py_sync() {  # label, knack.py 인자...
   N_SKIP=$((N_SKIP + ${s:-0}))
 }
 sync_hooks() { py_sync "훅" hooks-sync --agent "$1" --file "$2"; }
-sync_models() { py_sync "모델·서브에이전트" models-sync --agent "$@"; }
+sync_models() { if [ "$MODE" = global ] && [ "$WITH_MAIN" -eq 0 ]; then py_sync "모델·서브에이전트" models-sync --agent "$@" --no-main; else py_sync "모델·서브에이전트" models-sync --agent "$@"; fi; }
 models_index() {
   command -v python3 >/dev/null 2>&1 || return 0
   local out

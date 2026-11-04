@@ -8,6 +8,7 @@ overlaps: mattpocock-skills:diagnosing-bugs, engineering:debug
 
 원인을 입증하기 전에는 고치지 않는다. 증상만 가리는 수정(널 체크, 예외 삼키기, 재시도 추가)은 그것이 실제 원인에 대한 해법일 때만 한다.
 단계별 세부 절차: `knack show ref bugfix-workflow --section <번호>`. 흔한 원인: `knack show ref common-causes --toc`.
+CLI가 없으면 이 스킬의 `references/bugfix-workflow.md`, `references/common-causes.md`를 직접 읽는다. 정책·고위험 참조는 `../feature-implementation/references/`에 있다.
 
 ## 흐름
 1. 증상 정리: 기대/실제 동작, 에러, 환경, 빈도, 영향. 운영 장애가 진행 중이면 완화(롤백, 플래그)를 먼저 제안한다.

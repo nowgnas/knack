@@ -7,6 +7,7 @@ description: 처음 보는 백엔드 레포 전체를 파악해 온보딩 문서
 
 처음 보는 백엔드 레포(Java/Spring, .NET 중심)를 단계적으로 파악해 대상 레포의 `.onboarding/`에 남긴다.
 단계별 세부 절차는 필요한 단계만 읽는다: `knack show ref onboarding-phases --section <단계 번호>`.
+CLI가 없으면 `references/onboarding-phases.md`, `references/backend-lenses.md`, `references/stacks/`의 해당 파일을 읽는다.
 
 ## 모드
 | 모드 | 단계 | 용도 |

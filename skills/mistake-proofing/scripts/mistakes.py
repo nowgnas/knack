@@ -254,7 +254,7 @@ def main(argv):
             print("기록 없음 (bug-fix 가 docs/mistakes.md 에 mistake:<slug> 행을 한 줄씩 추가한다)")
         for slug, hits in sorted(tags.items(), key=lambda kv: (-len(kv[1]), kv[0])):
             if accepted(done.get(slug)):
-                mark = done[slug]
+                mark = done[slug] + (" (기록 기준, 실행 미검증)" if done[slug] == "증명됨" else "")
             elif len(hits) >= REPEAT:
                 mark = "재발 — 강제 필요" + (f" (표: {done[slug]})" if slug in done else "")
             else:
@@ -267,7 +267,7 @@ def main(argv):
         print(f"강제 수단 없음: mistake:{slug} ({len(tags[slug])}회: {'; '.join(tags[slug])}) — {why}")
     if missing:
         return 1
-    print(f"정상: 재발한 태그가 모두 docs/enforcement.md 에 있다 (태그 {len(tags)}개)")
+    print(f"정상: 재발한 태그가 모두 docs/enforcement.md 에 있다 (태그 {len(tags)}개; 기록 기준, 실행 미검증)")
     return 0
 
 

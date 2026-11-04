@@ -93,6 +93,7 @@ knack 은 백엔드 개발용 개인 에이전트 하네스입니다. 에이전�
 
 ### knack-manage — 스킬·룰·훅 관리
 - 스킬을 설치할 때 에이전트 폴더에 바로 넣지 않고 하네스에 추가한 뒤 `knack install`로 연결합니다.
+- `knack add skill`은 스킬 폴더 밖을 가리키는 링크, 절대 링크, 끊어진 링크를 거부합니다. 폴더 안을 가리키는 상대 링크는 유지합니다.
 - 설치 전에 `knack list --all`로 하네스와 외부에 이미 있는 스킬(같은 이름, 플러그인 스킬 포함)을 확인합니다.
 - 선택 훅 `guard-agent-config`를 켜면 에이전트 폴더에 직접 설치하는 작업을 막습니다. 기본값은 꺼짐입니다.
 - 외부 스킬·플러그인은 `knack list --all`로 봅니다. 데스크톱 앱(Cowork)에서 설치한 플러그인과 앱 기본 제공 스킬도 포함되며, 이들은 앱 설정에서 켜고 끕니다.
@@ -129,6 +130,7 @@ knack 은 백엔드 개발용 개인 에이전트 하네스입니다. 에이전�
 - `knack gate status`는 실행하지 않고 상태만 봅니다. `run`은 미충족 게이트만, `reverify`는 충족된 것까지 전부 다시 실행합니다. 게이트 정의를 바꾸면 이전 증거는 무효가 됩니다.
 - 불가능한 게이트는 지우지 않고 맨 앞 열에 `ABANDON: <id> <이유와 인계 대상>`을 적습니다. 포기가 있으면 완료가 아니라 인계로 보고합니다.
 - `echo ok`처럼 코드와 상관없이 통과하는 게이트는 `knack gate`가 경고합니다.
+- 증거와 해시는 같은 파일에서 수정할 수 있어 실행 사실의 위조를 막지 못합니다. 기존 증거를 신뢰할 수 없으면 `reverify`로 다시 실행하세요. 린트 경고를 종료 코드에 반영하려면 `--strict`를 씁니다.
 - 규칙 전체: `knack show ref high-risk-gates` · 템플릿: `knack show template GATES`
 
 ## 룰과 훅
@@ -155,9 +157,12 @@ knack 은 백엔드 개발용 개인 에이전트 하네스입니다. 에이전�
 | 세션 기본 모델 (`main`) | `~/.claude/settings.json`의 `model` | `~/.codex/config.toml`의 `model`, `model_reasoning_effort` |
 | 지시 파일 블록 | "커밋·푸시·PR → `git-ops`에 위임" 같은 색인 몇 줄 | 동일 (`spawn_agent`로 위임) |
 
+전역 설치는 세션 기본 모델을 유지합니다. `knack install --with-main`을 쓰면 위 설정을 `main` 값으로 갱신합니다. 먼저 `--with-main --dry-run`으로 확인하세요.
+
 - 커밋·푸시·PR은 `git-ops`, 탐색은 `repo-explorer`, 독립 리뷰는 `impl-reviewer`에 위임되고, 설계·구현은 세션 모델로 진행합니다.
 - 스크립트로 고르기: `knack model get <작업> --agent codex --format flags`, `knack run <작업> -- "<요청>"`(작업 유형에 맞는 모델로 새 세션 실행). 작업 유형은 `knack model list`로 확인합니다.
-- 바꾸기: `knack model set git haiku --agent claude`, `knack model set implement deep`, `knack model set main deep --agent codex` → `knack install`.
+- Codex 비대화 실행에서 프롬프트를 인자에 노출하지 않으려면 `knack run implement --agent codex --print --prompt-file <파일>` 또는 `--prompt-file -`로 표준입력을 사용합니다. 인자로 넘긴 프롬프트는 `knack run`을 호출할 때 노출될 수 있습니다.
+- 바꾸기: `knack model set git haiku --agent claude`, `knack model set implement deep` → `knack install`. 세션 기본 모델은 `knack model set main deep --agent codex` → `knack install --with-main`.
 - **PC마다 설치된 모델이 다를 때**: 모델을 후보 목록으로 적으면(`knack model set tier:deep "gpt-6-astra,gpt-6-sol" --agent codex --effort high`) 설치된 첫 모델을 씁니다. Codex는 `~/.codex/models_cache.json`으로 설치 여부를 확인하고, 지원하지 않는 effort는 떨굽니다. Claude 별칭(`opus`·`sonnet`·`haiku`)은 CLI가 풀어 주므로 확인 대상이 아닙니다.
 - 후보가 전부 없으면 `knack run`은 모델 플래그 없이 CLI 기본값으로 실행하고 알립니다. `knack doctor`도 경고합니다.
 - `knack run`의 에이전트는 PATH의 `claude`/`codex` 바이너리로 실행됩니다(셸 함수·별칭은 적용되지 않음). headroom 같은 래퍼를 거치려면 환경변수 `KNACK_CLAUDE_CMD`(예: `'headroom wrap claude --'`)를 씁니다.
@@ -217,14 +222,14 @@ knack 은 백엔드 개발용 개인 에이전트 하네스입니다. 에이전�
 | `knack run <작업\|main> [--agent claude\|codex] [--print] -- "<프롬프트>"` | 작업에 맞는 모델로 에이전트 실행 (`--dry-run`: 명령만 출력) |
 | `knack gate <status\|run\|reverify> <GATES.md>` | 완료 게이트: 상태만(실행 안 함) · 미충족만 실행 · 전부 재실행. 종료 0 ALL MET · 1 미충족·포기 · 2 형식 오류 |
 | `knack persona [show\|init\|set\|import\|check\|enable\|disable\|path]` | 사용자 페르소나 조회·수정 (`persona import -` 로 표준입력) |
-| `knack install [--dry-run] [--project <path>] [--agents claude,codex] [--force]` | 설치 (기본값: 글로벌) |
+| `knack install [--dry-run] [--project <path>] [--agents claude,codex] [--force] [--with-main]` | 설치 (기본값: 글로벌, 세션 모델 유지) |
 | `knack reinstall [옵션]` | 제거 후 다시 설치. 설치 상태가 꼬였을 때, 또는 다른 클론으로 옮길 때 |
 | `knack status` / `knack update` / `knack uninstall` | 상태 / git pull → 재설치 → doctor / 제거 |
 | `knack help [스킬]` · `knack scan [경로]` · `knack test` · `knack version` | 사용법 · 레포 스캔 · 스모크 테스트 · 버전 |
 
 ## 설치 · 업데이트
 
-Codex 모델 후보가 모두 없으면 기존 기본 모델을 유지하고 서브에이전트 역할의 모델 지정을 생략합니다. 선택된 모델이 지원하지 않는 effort는 기존 최상위 설정에서도 제거합니다. `knack doctor`는 역할 설정 블록과 기본 모델의 갱신 필요 여부도 확인합니다.
+Codex 모델 후보가 모두 없으면 서브에이전트 역할의 모델 지정을 생략합니다. `--with-main` 사용 시 후보가 모두 없으면 기존 기본 모델을 유지하고, 선택된 모델이 지원하지 않는 effort는 기존 최상위 설정에서도 제거합니다. `knack doctor`는 역할 설정 블록의 갱신 필요 여부를 확인합니다.
 
 ```bash
 git clone https://github.com/nowgnas/knack.git ~/knack && ~/knack/install.sh --global   # 새 노트북

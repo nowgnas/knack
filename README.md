@@ -20,7 +20,11 @@ knack doctor                    # 점검
 knack help                      # 사용법
 ```
 
-`doctor`는 Codex 역할 설정 블록과 기본 모델의 갱신 필요 여부도 확인합니다. Codex 모델 후보가 모두 없으면 설치 시 기존 기본 모델을 유지하고 역할의 모델 지정을 생략합니다. 선택된 모델이 지원하지 않는 effort는 기존 최상위 설정에서도 제거합니다.
+`doctor`는 Codex 역할 설정 블록의 갱신 필요 여부도 확인합니다. Codex 모델 후보가 모두 없으면 역할의 모델 지정을 생략합니다.
+
+전역 설치는 기존 세션 기본 모델을 유지합니다. `knack install --with-main`을 명시하면 `models.json`의 `main`을 Claude `settings.json`과 Codex `config.toml`에 반영합니다. 설치 전에 `knack install --with-main --dry-run`으로 확인하세요.
+
+`knack add skill`은 스킬 폴더 밖을 가리키는 심볼릭 링크와 절대·끊어진 링크를 거부합니다. 스킬 안을 가리키는 상대 링크는 복사합니다.
 
 ## 무엇을 관리하나
 
@@ -98,6 +102,8 @@ knack gate status .design/<slug>/GATES.md     # 실행 없이 상태·경고
 knack gate run .design/<slug>/GATES.md        # 미충족 자동 게이트만 실행, EVIDENCE 기록
 knack gate reverify .design/<slug>/GATES.md   # 충족된 것까지 전부 다시 실행 (보고 직전)
 ```
+
+게이트는 실수와 오래된 기록을 찾기 위한 장치입니다. `EVIDENCE`와 정의의 해시는 같은 파일에서 수정할 수 있으므로 실행 사실의 위조를 막지 못합니다. 기존 증거를 신뢰할 수 없는 경우 `reverify`로 다시 실행하세요. 린트 경고를 실패로 다루려면 `--strict`를 사용하세요.
 
 ## 룰·훅·서브에이전트
 

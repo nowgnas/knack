@@ -65,7 +65,7 @@ class ModelSyncTest(unittest.TestCase):
         self.assertIn('[profiles.custom]\nmodel_reasoning_effort = "high"', text)
         self.assertEqual(self.sync(), text)
 
-    def test_doctor_detects_role_block_and_main_drift(self):
+    def test_doctor_detects_role_block_but_ignores_main_drift(self):
         self.cfg['main']['codex'] = {'model': 'available-model', 'effort': 'low'}
         self.sync()
         clean = self.doctor()
@@ -76,7 +76,7 @@ class ModelSyncTest(unittest.TestCase):
         k.CODEX_CONFIG.write_text(text)
         output = self.doctor()
         self.assertIn('codex:역할 블록', output)
-        self.assertIn('codex:기본 모델', output)
+        self.assertNotIn('codex:기본 모델', output)
 
 
 if __name__ == '__main__':

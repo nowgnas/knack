@@ -27,7 +27,7 @@ description: 스킬·룰·훅·서브에이전트·모델 라우팅을 하네스
 | 외부 스킬을 하네스로 옮기기 | 사용자가 요청할 때만 `knack adopt skill <이름>` → 설치 단계로 |
 | 외부 스킬 제거 | `knack list skills --all`로 대상·위치를 확인하고 백업 후 삭제한 뒤 `knack list --all`로 결과를 확인한다 |
 | 훅 켜기·끄기 | `knack hook enable\|disable <이름>` → 설치 단계로 |
-| 작업 유형별 모델 변경 | `knack model`로 현재 표 확인 → `knack model set <작업\|main\|tier:이름> <티어\|모델> [--agent] [--effort]` → 설치 단계로. 새 위임 대상이 필요하면 `agents/`에 `task:`를 가진 서브에이전트를 만든다 |
+| 작업 유형별 모델 변경 | `knack model`로 현재 표 확인 → `knack model set <작업\|main\|tier:이름> <티어\|모델> [--agent] [--effort]` → 설치 단계로. 세션 기본 모델 반영은 `knack install --with-main`을 사용한다. 새 위임 대상이 필요하면 `agents/`에 `task:`를 가진 서브에이전트를 만든다 |
 | 룰 | always 룰은 매 세션 로드되므로 짧게 쓴다. 가끔 필요한 규칙은 on-demand 룰(`when:`에 읽을 시점)로 만든다 |
 | 플러그인·MCP | 하네스는 조회만 한다. 설치는 각 에이전트 명령으로 하되 사용자에게 알린다. 데스크톱 앱(Cowork) 플러그인은 앱 설정에서 켜고 끈다 |
 
