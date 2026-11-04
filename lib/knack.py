@@ -1419,8 +1419,8 @@ def cmd_run(a):
     if a.prompt_file and a.prompt:
         fail("--prompt-file 과 프롬프트 인자는 함께 쓸 수 없습니다.", 2)
     if a.prompt_file:
-        if not a.print or (a.agent and a.agent != "codex"):
-            fail("--prompt-file 은 Codex --print 에서만 사용할 수 있습니다.", 2)
+        if not a.print:
+            fail("--prompt-file 은 --print 에서만 사용할 수 있습니다.", 2)
         try:
             prompt = (sys.stdin.read() if a.prompt_file == "-" else Path(a.prompt_file).read_text(encoding="utf-8")).strip()
         except OSError as e:
@@ -1429,8 +1429,6 @@ def cmd_run(a):
         prompt = " ".join(a.prompt).strip()
     task = a.task
     agent = a.agent or ("claude" if shutil.which("claude") else "codex")
-    if a.prompt_file and agent != "codex":
-        fail("--prompt-file 은 Codex --print 에서만 사용할 수 있습니다. --agent codex 를 지정하세요.", 2)
     model, effort = resolve_model(cfg, task, agent)
     if not model:
         fail(f"{agent}/{task} 모델이 models.json 에 없습니다.")
@@ -1443,9 +1441,10 @@ def cmd_run(a):
         cmd = [*agent_cmd(agent), *flags, *(["--print"] if a.print else [])]
     else:
         cmd = [*agent_cmd(agent), *(["exec"] if a.print else []), *flags]
-    stdin_prompt = bool(prompt and agent == "codex" and a.print)
+    stdin_prompt = bool(prompt and a.print and (agent == "codex" or a.prompt_file))
     if stdin_prompt:
-        cmd.append("-")
+        if agent == "codex":
+            cmd.append("-")
     elif prompt:
         cmd.append(prompt)
     elif a.print:
@@ -1686,7 +1685,7 @@ def main():
     s.add_argument("prompt", nargs="*")
     s.add_argument("--agent", choices=AGENTS_SUPPORTED)
     s.add_argument("--print", action="store_true", help="비대화 실행 (claude -p / codex exec)")
-    s.add_argument("--prompt-file", help="Codex --print 프롬프트 파일 (표준입력은 -)")
+    s.add_argument("--prompt-file", help="--print 프롬프트 파일 (표준입력은 -)")
     s.add_argument("--dry-run", action="store_true", help="실행할 명령만 출력")
 
     s = sub.add_parser("models-sync")
