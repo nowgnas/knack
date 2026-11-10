@@ -198,13 +198,43 @@ knack 은 백엔드 개발용 개인 에이전트 하네스입니다. 에이전�
 
 ## 결과물 위치
 대상 레포 안에 만들어지며, 폴더마다 `.gitignore`(`*`)가 있어서 커밋되지 않습니다.
+`.design/`는 **메인 worktree** 한 곳에만 둡니다(`knack work path`). 커밋되지 않는 파일은 worktree마다 따로라서, 각 worktree에 만들면 다른 세션·에이전트가 볼 수 없기 때문입니다.
 ```
 .onboarding/   ONBOARDING.md, GLOSSARY.md, QUESTIONS.md, scan.md, flows/
-.design/       <slug>/PLAN.md — 계획과 결과를 한 파일에 (표준 규모부터)
+.design/       <slug>/PLAN.md — 요구사항·정책·설계·결정 이력(8절)·결과와 리뷰(9절)를 한 파일에 (표준 규모부터)
+               <slug>/PROGRESS.md — 진행 기록 (`knack work log`가 한 줄씩 덧붙임)
                <slug>/GATES.md, REVIEW.md — 고위험일 때만
                bug-<slug>/BUGFIX.md
 ```
+| 무엇을 찾나 | 어디 |
+|---|---|
+| 설계·정책 판정·열린 질문 | `PLAN.md` 1~7절 |
+| 의사결정(대안·이유·결정한 사람) | `PLAN.md` 8절, 버그는 `BUGFIX.md` 가설 기록·수정 표 |
+| 구현 진행·승인 시점·막힘·인계 | `PROGRESS.md` (`knack work status <slug>`) + `PLAN.md` 7절 체크박스 |
+| 검증·리뷰 결과 | `PLAN.md` 9절, 고위험은 `GATES.md`(증거)·`REVIEW.md`(지적 전문) |
+| 티켓 배경·파악·대안과 결정의 이유·최종 결과·배포 상태 | Obsidian `{Work}/{티켓키}-{과제명}/` (`obsidian-ticket` 룰), 팀 공유는 PR 설명 |
+
+`.design/`과 Obsidian은 독자와 수명으로 나눕니다. `.design/`은 작업 중인 에이전트가 읽고 머지되면 끝나는 실행 문서(변경 파일·구현 순서·증거·진행 기록), Obsidian은 사람이 나중에 읽는 지식입니다. 시작할 때는 노트를 읽고 `PLAN.md`에 요약과 경로만, 진행 중 상태는 `.design/`에만, 끝날 때 결론만 `구현.md`로 옮깁니다.
+
 예외로 레포에 커밋하는 것: `docs/mistakes.md`(실수 발생 원장)·`docs/enforcement.md`(`mistake-proofing`), `.agents/skills/verify-<앱>/`(`verification-skill`).
+
+## 여러 에이전트가 같은 과제를 할 때
+대화는 세션마다 따로라서, 상태는 과제 문서로만 맞춥니다.
+```bash
+knack work list                                   # 과제 목록 · 상태 · 구현 순서 n/m · 작업 중인 에이전트
+knack work status ORDER-123-cancel                # 설계 승인 기록 · 남은 구현 순서 · 작업 중 · 최근 기록
+knack work path ORDER-123-cancel                  # 문서 폴더 (없으면 만든다, 어느 worktree에서나 같은 경로)
+knack work log ORDER-123-cancel 시작 "재고 복원" --step 7-2   # 사건: 시작·완료·막힘·인계·승인·결정·메모
+```
+- 이어받는 에이전트는 `status`와 `PLAN.md`부터 읽습니다. 승인 기록이 없으면 구현 전에 다시 확인합니다.
+- 기본 훅 `knack-work`(Claude `SessionStart`)가 최근 30일 안에 손댄, 끝나지 않은 과제를 세션 시작 때 알려 줍니다. 상태가 `완료`인 과제와 과제 문서가 없는 레포에서는 조용합니다. 끄려면 `knack hook disable knack-work`. Codex는 지시 블록의 룰 한 줄로만 안내됩니다.
+- 같은 단계를 다른 에이전트가 `시작`하고 닫지 않았으면 `log 시작`이 경고합니다(막지는 않습니다). 닫는 사건은 `완료`·`막힘`·`인계`입니다.
+- 기록의 `누가`는 `<에이전트>#<세션 ID 앞 4자>@<worktree>:<브랜치>`입니다(세션 ID는 Claude Code와, 환경변수로 알려 주는 Codex에서만 붙습니다). 이름을 직접 정하려면 `--who`나 `KNACK_AGENT`를 씁니다.
+- `시작`만 있고 하루 넘게 닫히지 않은 기록은 "끊긴 세션일 수 있다"로 표시합니다. 사용자에게 확인하고 `인계`로 닫습니다.
+- 공유 범위는 **이 PC의 같은 레포 worktree**입니다. 다른 clone·PC와 나누려면 레포에서 한 번 `git config knack.workdir <공유 폴더>`를 실행합니다(모든 worktree에 적용, 세션마다 지정할 필요 없음). 한 번만 바꾸려면 `KNACK_WORK_DIR`.
+- **Codex 샌드박스**: Codex의 `workspace-write`는 현재 worktree 밖에 쓰지 못합니다. `knack run … --agent codex`는 과제 문서 폴더가 밖에 있으면 `--add-dir <폴더>`를 자동으로 붙입니다. Codex를 직접 띄울 때는 `codex --add-dir "$(knack work path)"`. 그 폴더만 열리고 나머지 제한은 그대로입니다.
+- 그래도 쓰지 못해 worktree 안에 기록됐으면(경고가 나옵니다) 쓸 수 있는 세션에서 `knack work sync [slug]`로 합칩니다. 진행 기록은 없는 줄만 덧붙이고, 내용이 다른 파일은 덮어쓰지 않고 충돌로 알립니다(종료 1).
+- `knack gate`를 다른 worktree에서 부르면 문서가 있는 메인 worktree가 아니라 그 worktree의 코드를 검증하고, EVIDENCE에 `commit=`을 남깁니다.
 
 ## 터미널 명령 `knack`
 
@@ -221,6 +251,7 @@ knack 은 백엔드 개발용 개인 에이전트 하네스입니다. 에이전�
 | `knack model [list\|get <작업>\|set …]` | 작업 유형별 모델 조회·변경 |
 | `knack run <작업\|main> [--agent claude\|codex] [--print] -- "<프롬프트>"` | 작업에 맞는 모델로 에이전트 실행 (`--dry-run`: 명령만 출력) |
 | `knack gate <status\|run\|reverify> <GATES.md>` | 완료 게이트: 상태만(실행 안 함) · 미충족만 실행 · 전부 재실행. 종료 0 ALL MET · 1 미충족·포기 · 2 형식 오류 |
+| `knack work <list\|status [slug]\|path [slug]\|log <slug> <사건> "<메모>" [--step S]\|sync [slug]>` | 과제 문서 위치(메인 worktree의 `.design/`)와 진행 기록 |
 | `knack persona [show\|init\|set\|import\|check\|enable\|disable\|path]` | 사용자 페르소나 조회·수정 (`persona import -` 로 표준입력) |
 | `knack install [--dry-run] [--project <path>] [--agents claude,codex] [--force] [--with-main]` | 설치 (기본값: 글로벌, 세션 모델 유지) |
 | `knack reinstall [옵션]` | 제거 후 다시 설치. 설치 상태가 꼬였을 때, 또는 다른 클론으로 옮길 때 |

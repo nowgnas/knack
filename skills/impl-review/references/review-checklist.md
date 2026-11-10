@@ -33,7 +33,7 @@
 - Never write a command or result you did not run as if you ran it.
 
 ## What to check
-1. **Design fit**: Is every success criterion met by code and tests? Are the policy decisions (DESIGN sections 2, 3, 9) reflected? Any change outside the design?
+1. **Design fit**: Is every success criterion met by code and tests? Are the policy decisions (PLAN.md sections 2, 3, 8; for a bug, the fix plan in BUGFIX.md) reflected? Any change outside the design?
    - Don't take the implementer's summary or commit messages as evidence. Compare each criterion against the code line by line; missing pieces and unrequested additions are both findings.
 2. **Correctness**: boundaries, null, empty collections, state-transition guards, exception paths, dates, time zones, money rounding
 3. **Transactions and concurrency**

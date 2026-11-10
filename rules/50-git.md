@@ -10,6 +10,6 @@ when: 커밋·브랜치·푸시·PR 작업 전
 - 한 커밋에는 한 가지 목적만 담는다. 포맷 변경과 기능 변경을 섞지 않는다.
 - `push --force`, `reset --hard`, 히스토리 재작성은 명시적 요청 없이 하지 않는다.
 - 커밋 1건·푸시·태그는 이 세션에서 직접 한다. `git-ops` 위임은 브랜치 정리·충돌 해결·커밋 재구성처럼 왕복이 많은 작업에만 쓴다 — 위임받은 에이전트는 맥락이 없어 diff부터 다시 읽는다.
-- PR 설명에는 변경 요약, 주요 결정, 검증 방법을 적는다. `.design/<slug>/PLAN.md`의 결과 절이 있으면 활용한다.
+- PR 설명에는 변경 요약, 주요 결정, 검증 방법을 적는다. 과제 폴더(`knack work path <slug>`)의 `PLAN.md` 결과 절이 있으면 활용한다 — 과제 문서는 커밋되지 않으므로 팀이 알아야 할 결정은 PR 설명에 옮겨 적는다.
 - PR은 원격 호스트가 github.com이 아닌 레포(회사 git)에서는 로컬(`gh pr create` 등)에서 만들지 않는다. `git remote get-url origin`으로 호스트를 먼저 확인하고, 브랜치 push까지만 한 뒤 PR 생성은 사용자가 원격 플랫폼(GitHub Enterprise·Azure DevOps 등)에서 직접 하도록 안내한다.
 - 개인 github.com 레포에서는 `gh pr create`로 PR을 만들어도 된다.

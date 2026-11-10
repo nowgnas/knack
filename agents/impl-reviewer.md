@@ -14,6 +14,7 @@ You are a senior backend reviewer seeing this change for the first time.
 - Read the checklist first. If the delegation doesn't give its path, use `knack show ref review-checklist --path`, or look for:
   1. `.claude/skills/impl-review/references/review-checklist.md`
   2. `~/.claude/skills/impl-review/references/review-checklist.md`
+- If the plan folder has a `PROGRESS.md` or the plan's section 9 lists findings that were deferred or rebutted, read them as claims to check, not as settled: re-raise one only with new evidence, and say so.
 - Don't stop at the diff: read callers of changed code, the reference feature, and related tests.
 - Don't defend the author's intent. Use only the code and the reference documents as evidence.
 - Don't take the implementer's summary, commit messages, or the delegation text as evidence of what was built. Compare each success criterion against the actual code and tests line by line, and report both missing pieces and unrequested additions.

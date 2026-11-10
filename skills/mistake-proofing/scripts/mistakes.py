@@ -14,7 +14,9 @@ enforcement 표의 행: | 태그 | 룰 | 강제 수단 | 실행 명령 | 과거 
 종료 코드: 0 정상 · 1 강제 수단 없는 재발 · 2 사용법 오류·읽을 수 없는 파일·원장 형식 오류
 """
 import datetime
+import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -96,8 +98,22 @@ def legacy_tags(repo):
     지금 bug-fix 템플릿은 "docs/mistakes.md에도 한 줄 추가했다: 예" 로 답하므로 옮긴 새 파일은 해당하지 않는다."""
     counts, problems = {}, []
     base = repo / ".design"
+    bases = [base]
+    # 과제 문서는 메인 worktree 의 .design 에 모인다(knack work path). 다른 worktree 에서 불러도 거기를 본다.
     try:
-        files = sorted(base.glob("*/BUGFIX.md")) if base.is_dir() else []
+        p = subprocess.run(["git", "-C", str(repo), "rev-parse", "--path-format=absolute", "--git-common-dir"],
+                           capture_output=True, text=True)
+        common = Path(p.stdout.strip()) if p.returncode == 0 and p.stdout.strip() else None
+        if common and common.name == ".git" and common.parent / ".design" != base:
+            bases.append(common.parent / ".design")
+        shared = os.environ.get("KNACK_WORK_DIR") or subprocess.run(
+            ["git", "-C", str(repo), "config", "--get", "knack.workdir"], capture_output=True, text=True).stdout.strip()
+        if shared:
+            bases.append(Path(shared).expanduser())
+    except OSError:
+        pass
+    try:
+        files = sorted(f for b in bases if b.is_dir() for f in b.glob("*/BUGFIX.md"))
     except OSError as e:
         return counts, [f"{base}: 읽을 수 없다 ({e.strerror or e})"]
     for f in files:

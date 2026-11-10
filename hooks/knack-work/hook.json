@@ -1,0 +1,9 @@
+{
+  "name": "knack-work",
+  "description": "세션 시작 시 이 레포에 끝나지 않은 과제 문서(.design)가 있으면 상태·작업 중인 에이전트·마지막 기록을 알려서 이어받을 때 문서부터 읽게 한다.",
+  "enabled": true,
+  "command": "open_tasks.py",
+  "targets": {
+    "claude": { "event": "SessionStart", "timeout": 10 }
+  }
+}

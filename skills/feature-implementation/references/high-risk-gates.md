@@ -14,7 +14,7 @@ unlazy(https://github.com/Leonxlnx/unlazy, MIT)의 게이트 형식과 규칙 �
 경량 규모이거나 위에 해당하지 않으면 쓰지 않는다. 게이트를 쓰고 돌리는 것도 비용이다.
 
 ## 2. GATES.md 작성
-위치는 `.design/<slug>/GATES.md`, 템플릿은 `knack show template GATES`.
+위치는 `knack work path <slug>`가 알려 주는 과제 폴더의 `GATES.md`, 템플릿은 `knack show template GATES`.
 - 게이트 하나 = 관찰 가능한 결과 하나. 제목은 활동("테스트 작성")이 아니라 결과("같은 멱등키 동시 요청은 한 건만 승인된다")로 쓴다.
 - 자동 게이트: 들여쓴 `CHECK:`(명령)와 `EXPECT:`(성공할 때만 나오는 출력, `/정규식/플래그` 가능)를 둘 다 쓴다. 통과 = exit 0 **그리고** EXPECT 일치. 실패 종료는 출력이 맞아도 실패다.
 - 수동 게이트: 명령으로 판정할 수 없을 때만 쓴다(예: 배포 순서 팀 합의). CHECK·EXPECT 없이 쓰고, 확인한 뒤 `[x]`로 체크하고 `EVIDENCE:`에 확인한 사실 한 줄을 적는다.
@@ -48,7 +48,8 @@ unlazy(https://github.com/Leonxlnx/unlazy, MIT)의 게이트 형식과 규칙 �
 | `knack gate run <GATES.md>` | 아직 충족되지 않은 자동 게이트만 실행하고 EVIDENCE를 기록한다 |
 | `knack gate reverify <GATES.md>` | 충족된 것까지 **전부** 다시 실행한다. 예전 증거는 지금 코드의 증거가 아니다 |
 
-- 명령은 GATES.md가 속한 git 레포의 루트에서 실행된다.
+- 명령은 GATES.md가 속한 git 레포의 루트에서 실행된다. 같은 레포의 다른 worktree에서 부르면 그 worktree 루트에서 실행하고(`실행 위치:` 줄로 알린다), EVIDENCE의 `commit=`에 검증한 커밋을 남긴다(`+dirty`는 커밋되지 않은 변경이 있었다는 뜻).
+- 여러 worktree가 한 GATES.md를 쓰면 EVIDENCE는 마지막에 돌린 쪽의 것이다. 보고 직전에는 합쳐진 코드에서 `reverify`한다.
 - 게이트 정의(CHECK·EXPECT·CWD)를 바꾸면 이전 증거는 무효가 된다.
 - 종료 코드: 0 ALL MET · 1 미충족 또는 포기 있음 · 2 형식 오류.
 

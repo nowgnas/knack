@@ -11,7 +11,7 @@ overlaps: mattpocock-skills:diagnosing-bugs, engineering:debug
 CLI가 없으면 이 스킬의 `references/bugfix-workflow.md`, `references/common-causes.md`를 직접 읽는다. 정책·고위험 참조는 `../feature-implementation/references/`에 있다.
 
 ## 흐름
-1. 증상 정리: 기대/실제 동작, 에러, 환경, 빈도, 영향. 운영 장애가 진행 중이면 완화(롤백, 플래그)를 먼저 제안한다.
+1. 증상 정리: 기대/실제 동작, 에러, 환경, 빈도, 영향. `knack work list`에 같은 버그 과제가 있으면 `knack work status bug-<slug>`와 `BUGFIX.md`를 읽고 이어서 한다. 운영 장애가 진행 중이면 완화(롤백, 플래그)를 먼저 제안한다.
 2. 재현: 실패하는 자동 테스트를 우선한다. 재현 테스트 추가는 진단이므로 게이트 전에도 하고, 했다고 알린다.
 3. 원인 분석: 가설은 한 번에 하나씩 표로 좁히고, 여러 컴포넌트를 거치면 경계마다 증거를 모은다. 회귀면 git 이력·bisect. `path:line`으로 설명되면 확정한다.
 4. 수정 계획 게이트 (아래)
@@ -22,7 +22,8 @@ CLI가 없으면 이 스킬의 `references/bugfix-workflow.md`, `references/comm
 9. 기록:
    - 실수의 종류가 분명하면 규모와 상관없이 레포의 `docs/mistakes.md`(커밋되는 발생 원장, 없으면 `../mistake-proofing/templates/mistakes.md`로 생성, 그 경로가 없으면 `references/bugfix-workflow.md` 9절)에 `| 날짜 | mistake:<slug> | 한 줄 요약 | 버그 기록(PR·이슈, 없으면 bug-<slug>-<날짜>) |` 한 줄을 추가해 수정 커밋에 넣는다(파일을 처음 만들 때는 레포에 새 파일이 생기므로 사용자 확인). 같은 태그가 이미 있으면 `mistake-proofing`
    - 경량이면 그 한 줄과 대화 보고만. `BUGFIX.md`는 만들지 않는다
-   - 그 밖에는 `templates/BUGFIX.md` → `.design/bug-<slug>/BUGFIX.md` 한 개(수정 계획과 결과를 같은 파일에, 커밋되지 않음). "재발 방지"에 같은 태그를 적는다
+   - 그 밖에는 `templates/BUGFIX.md` → `$(knack work path bug-<slug>)/BUGFIX.md` 한 개(메인 worktree의 `.design/`, 수정 계획과 결과를 같은 파일에, 커밋되지 않음). "재발 방지"에 같은 태그를 적는다
+   - 파일을 쓰는 규모면 원인 확정·게이트 승인·멈춤·완료 때 `knack work log bug-<slug> <결정|승인|막힘|인계|완료> "<메모>"`를 남긴다. 기각한 가설은 `BUGFIX.md` 가설 기록에 남겨 다음 에이전트가 되풀이하지 않게 한다
 
 ## 4. 수정 계획 게이트
 원인(근거), 재현 방법, 수정 방향, 영향 범위를 보고한다. 아래 중 하나라도 해당하면 **승인 후** 수정하고, 없으면 보고하고 바로 수정한다.

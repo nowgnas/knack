@@ -14,8 +14,8 @@ overlaps: mattpocock-skills:code-review, engineering:code-review
 | 넘길 것 | 기본값 |
 |---|---|
 | 변경 범위 | `git diff <base>...HEAD` + 작업 트리 변경. base는 PLAN.md의 기준 커밋, 없으면 기본 브랜치와의 merge-base |
-| 기준 문서 | `.design/<slug>/PLAN.md` 또는 `BUGFIX.md`. 없으면(경량·단독 요청) 사용자 요청을 성공 기준 3~5줄로 정리 |
-| 완료 게이트 | 고위험이면 `.design/<slug>/GATES.md`, 아니면 "없음" |
+| 기준 문서 | 과제 폴더(`knack work path <slug>`, 목록은 `knack work list`)의 `PLAN.md` 또는 `BUGFIX.md` 절대 경로. 없으면(경량·단독 요청) 사용자 요청을 성공 기준 3~5줄로 정리 |
+| 완료 게이트 | 고위험이면 같은 폴더의 `GATES.md`, 아니면 "없음" |
 | 레퍼런스 기능 | PLAN.md 4절의 경로 |
 | 체크리스트 | 이 스킬의 `references/review-checklist.md` 절대 경로 (`knack show ref review-checklist --path`, CLI가 없으면 파일 경로를 직접 쓴다) |
 
@@ -65,8 +65,8 @@ overlaps: mattpocock-skills:code-review, engineering:code-review
 | ❔ 질문 | 코드로 답할 수 있으면 답을 적고, 정책 문제면 사용자에게 올린다 |
 
 - 반영한 뒤에는 빌드와 테스트를 다시 돌린다. Blocker를 고쳤으면 고친 부분만 한 번 더 리뷰받는다. **리뷰는 최대 2라운드**.
-- 결과는 대화로 보고하고, 계획 파일이 있으면 `PLAN.md` 9절 독립 리뷰 줄(리뷰어·심각도별 건수·반영/보류)을 채운다.
-- **고위험일 때만** 지적 전문을 `templates/REVIEW.md` 형식으로 `.design/<slug>/REVIEW.md`에 남긴다. 게이트와 함께 다시 읽히기 때문이다. 그 밖에는 파일을 만들지 않는다 — 지적은 PR 코멘트와 커밋이 보관한다.
+- 결과는 대화로 보고하고, 계획 파일이 있으면 `PLAN.md` 9절 독립 리뷰 줄(리뷰어·심각도별 건수·반영/보류)을 채우고 보류·반박·미결 잠재를 한 줄씩 적는다. 라운드마다 `knack work log <slug> 완료 "리뷰 <n>라운드 🔴n 🟠n · 미결 n" --step 리뷰`를 남긴다.
+- **고위험일 때만** 지적 전문을 `templates/REVIEW.md` 형식으로 `.design/<slug>/REVIEW.md`에 남긴다. 게이트와 함께 다시 읽히기 때문이다. 그 밖에는 파일을 만들지 않는다 — 반영한 지적은 커밋이, 반영하지 않은 지적은 `PLAN.md` 9절이 보관한다.
 
 ## 4. 완료 기준과 보고
 완료 = 🔴·🟠가 모두 반영됐거나 사용자 결정으로 보류됐고, 잠재 🔴/🟠가 모두 증명(4 이상)으로 확정·반증됐거나 사용자 결정으로 닫혔으며, 반영 후 검증을 통과했고, 결과가 기록된 상태(계획 파일 9절, 고위험이면 `REVIEW.md`).

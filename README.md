@@ -105,6 +105,18 @@ knack gate reverify .design/<slug>/GATES.md   # 충족된 것까지 전부 다�
 
 게이트는 실수와 오래된 기록을 찾기 위한 장치입니다. `EVIDENCE`와 정의의 해시는 같은 파일에서 수정할 수 있으므로 실행 사실의 위조를 막지 못합니다. 기존 증거를 신뢰할 수 없는 경우 `reverify`로 다시 실행하세요. 린트 경고를 실패로 다루려면 `--strict`를 사용하세요.
 
+### 과제 문서와 진행 기록 (여러 에이전트·worktree)
+
+설계·결정·결과는 `.design/<slug>/PLAN.md`(버그는 `BUGFIX.md`) 한 파일에, 진행 상황은 같은 폴더의 `PROGRESS.md`에 남습니다. 이 폴더는 커밋되지 않으므로 worktree마다 만들면 서로 볼 수 없습니다. 그래서 위치를 메인 worktree의 `.design/` 하나로 정하고, 에이전트는 시작 전에 읽고 단계가 바뀔 때 한 줄씩 덧붙입니다.
+
+```bash
+knack work list                                  # 과제 목록·상태·작업 중인 에이전트
+knack work status <slug>                         # 승인 기록·남은 구현 순서·최근 기록
+knack work log <slug> 인계 "다음: 7-3 재고 복원"   # 시작·완료·막힘·인계·승인·결정·메모
+```
+
+공유 범위는 이 PC의 같은 레포 worktree입니다(다른 clone·PC는 `git config knack.workdir <공유 폴더>`). Codex의 `workspace-write` 샌드박스는 worktree 밖에 쓰지 못하므로 `knack run`이 과제 문서 폴더를 `--add-dir`로 넘기고, 직접 띄울 때는 `codex --add-dir "$(knack work path)"`를 씁니다. 같은 단계의 중복 작업은 경고만 하고 막지 않습니다. 읽는 쪽은 `knack-work` 훅이 세션 시작 때 끝나지 않은 과제를 보여 줘서 보장하지만, 기록을 쓰는 쪽은 에이전트가 남겨야 생깁니다.
+
 ## 룰·훅·서브에이전트
 
 | 종류 | 이름 | 내용 |
@@ -119,6 +131,7 @@ knack gate reverify .design/<slug>/GATES.md   # 충족된 것까지 전부 다�
 | 선택 훅 (기본 꺼짐) | `guard-agent-config` | 에이전트 설정 폴더에 직접 쓰는(설치·삭제) 명령과 지시·설정 파일의 knack 블록 수정을 막고 knack 명령을 안내 |
 | 선택 훅 (기본 꺼짐) | `guard-prod-ops` | 운영·원격 DB 대상 마이그레이션(`dotnet ef database update/drop`, Flyway, Liquibase, Gradle·Maven 플러그인)과 운영 환경·프로파일(`ASPNETCORE_ENVIRONMENT`·`SPRING_PROFILES_ACTIVE`=prod 등) 실행을 막음. 판단할 수 없으면 막음(fail-closed) |
 | 훅 | `knack-stale` | 설치본이 레포와 다르면 세션 시작 때 알림 (Claude) |
+| 훅 | `knack-work` | 레포에 끝나지 않은 과제 문서가 있으면 세션 시작 때 상태·작업 중인 에이전트·마지막 기록을 알림 (Claude) |
 | 서브에이전트 | `impl-reviewer` | 구현 맥락 없는 독립 리뷰 (읽기 전용) |
 | 서브에이전트 | `repo-explorer` | 읽기 전용 코드 탐색 |
 | 서브에이전트 | `git-ops` | 커밋·푸시·브랜치·PR 위임 |
@@ -185,6 +198,7 @@ persona/                페르소나 템플릿 (core.md·detail/ 은 gitignore)
 templates/              사용자별 설정 양식 (예: obsidian-vault.local.yml.example. 실제 값은 레포 밖에 둠)
 lib/knack.py            조회·관리·훅·모델 동기화 (python3 표준 라이브러리)
 lib/gate.py             완료 게이트 확인·실행·재검증 (knack gate)
+lib/work.py             과제 문서 위치·진행 기록 (knack work)
 lib/persona.py          페르소나 조회·수정 (knack persona)
 bin/knack               CLI
 install.sh              설치/상태/제거
