@@ -37,6 +37,7 @@ check "mistake-proofing mistakes.py 회귀 테스트 (커밋 원장 집계·2회
 check "verification-skill link_skill.py 회귀 테스트 (링크·복사 sha256·덮어쓰기 거부)" 'python3 "$KNACK_DIR/tests/test_verification_skill.py" 2>/dev/null'
 check "guard-prod-ops 훅 회귀 테스트 (Claude·Codex 형식, fail-closed)" 'python3 "$KNACK_DIR/tests/test_guard_prod.py" 2>/dev/null'
 check "knack gate CHECK 실행 회귀 테스트" 'python3 "$KNACK_DIR/tests/test_gate_guard.py" 2>/dev/null'
+check "MCP 자동 로그인 훅 회귀 테스트 (허용 목록·비대화 건너뜀·시간 한도·fail-open)" 'python3 "$KNACK_DIR/tests/test_mcp_auto_login.py" 2>/dev/null'
 check "knack work 회귀 테스트 (worktree 공유 위치·진행 기록 덧붙이기·작업 중 경고·gate 실행 위치)" 'python3 "$KNACK_DIR/tests/test_work.py" 2>/dev/null'
 for f in "$KNACK_DIR"/skills/*/SKILL.md; do
   d="$(dirname "$f")"; s="$(basename "$d")"

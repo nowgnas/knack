@@ -145,6 +145,16 @@ knack 은 백엔드 개발용 개인 에이전트 하네스입니다. 에이전�
 
 선택 훅 `guard-prod-ops` (기본 꺼짐)(Claude·Codex `PreToolUse`)는 운영·원격 DB 대상 마이그레이션(`dotnet ef database update/drop`, Flyway, Liquibase, Gradle·Maven 플러그인)과 운영 환경·프로파일(`ASPNETCORE_ENVIRONMENT`·`SPRING_PROFILES_ACTIVE`=prod 등) 실행을 막습니다. 다른 훅과 달리 판단할 수 없으면 막습니다(fail-closed). 통과하는 대상은 localhost·Testcontainers·메모리 DB·프로젝트 SQLite 파일과 프로젝트 `.knack/safe-db-hosts`에 한 줄씩 적은 호스트입니다. `knack gate run`·`reverify`의 `CHECK`에는 적용되지 않습니다. 훅을 켜거나 끄려면 `knack hook enable|disable guard-prod-ops` → `knack install`.
 
+훅 `mcp-auto-login`(Codex)·`mcp-auto-login-claude`(Claude)는 세션을 새로 시작할 때 로그인이 필요한 MCP 서버에 `mcp login`을 실행합니다. 로그인은 브라우저를 띄우고 사람을 기다리므로 **이 PC의 설정 파일이 이름으로 허용한 서버만** 대상입니다. 파일이 없으면 아무것도 하지 않습니다.
+```json
+// ~/.config/knack/mcp-auto-login.local.json  (레포에 커밋되지 않는 PC 전용 설정)
+{ "claude": { "servers": ["atlassian"] }, "codex": { "servers": ["atlassian", "notion"] } }
+```
+- 허용 목록에 없는 서버는 로그인이 필요해도 건드리지 않습니다. 레포가 정의한 MCP 서버의 인증 페이지가 저절로 열리지 않게 하기 위해서입니다.
+- 건너뛰는 경우: resume·clear·compact, CI, SSH, `claude -p`·SDK 실행, `codex exec`·`review`, 부모 프로세스를 읽지 못해 판단할 수 없을 때.
+- 세션 시작을 붙잡는 시간은 합쳐서 최대 110초입니다. 남은 서버는 "시간 한도로 건너뜀"으로 알리고, 실패한 서버는 이름만 알립니다.
+- 끄려면 `knack hook disable mcp-auto-login` / `mcp-auto-login-claude`.
+
 기본 훅 `knack-stale`(Claude `SessionStart`)은 설치본이 레포와 다르면 세션 시작 때 알립니다. 스킬은 심링크라 레포를 고치면 바로 반영되지만 룰 블록·서브에이전트·훅·모델은 `install.sh`가 만드는 생성물이라 레포만 고치면 낡은 상태로 남기 때문입니다. 판단은 `install.sh --status`가 하고, 훅은 알리기만 합니다(설치는 사용자 승인 후 `knack install`). 끄려면 `knack hook disable knack-stale` → `knack install`.
 
 ## 작업 유형별 모델

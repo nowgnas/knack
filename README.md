@@ -131,6 +131,7 @@ knack work log <slug> 인계 "다음: 7-3 재고 복원"   # 시작·완료·막
 | 선택 훅 (기본 꺼짐) | `guard-agent-config` | 에이전트 설정 폴더에 직접 쓰는(설치·삭제) 명령과 지시·설정 파일의 knack 블록 수정을 막고 knack 명령을 안내 |
 | 선택 훅 (기본 꺼짐) | `guard-prod-ops` | 운영·원격 DB 대상 마이그레이션(`dotnet ef database update/drop`, Flyway, Liquibase, Gradle·Maven 플러그인)과 운영 환경·프로파일(`ASPNETCORE_ENVIRONMENT`·`SPRING_PROFILES_ACTIVE`=prod 등) 실행을 막음. 판단할 수 없으면 막음(fail-closed) |
 | 훅 | `knack-stale` | 설치본이 레포와 다르면 세션 시작 때 알림 (Claude) |
+| 훅 | `mcp-auto-login` · `mcp-auto-login-claude` | 세션을 새로 시작할 때, 이 PC 설정이 허용한 MCP 중 로그인이 필요한 것만 인증 (Codex · Claude). 설정 파일이 없으면 아무것도 하지 않음 |
 | 훅 | `knack-work` | 레포에 끝나지 않은 과제 문서가 있으면 세션 시작 때 상태·작업 중인 에이전트·마지막 기록을 알림 (Claude) |
 | 서브에이전트 | `impl-reviewer` | 구현 맥락 없는 독립 리뷰 (읽기 전용) |
 | 서브에이전트 | `repo-explorer` | 읽기 전용 코드 탐색 |

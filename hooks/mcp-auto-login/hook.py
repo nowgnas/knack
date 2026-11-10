@@ -1,52 +1,47 @@
 #!/usr/bin/env python3
-"""지정 기기의 Codex OAuth MCP 미로그인 항목만 순서대로 인증한다."""
-import fcntl
-import getpass
+"""Codex 세션 시작 시, 이 PC 설정이 허용한 OAuth MCP 중 로그인이 필요한 것만 인증한다.
+
+허용 목록·건너뛰는 조건·시간 한도는 hooks/_shared/mcp_login.py 에 있다.
+"""
 import json
 import os
-import platform
 import subprocess
 import sys
-import tempfile
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "_shared"))
+REMOTE = ("streamable_http", "sse")
 
 
-def notify(message):
-    print(json.dumps({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": message}}, ensure_ascii=False))
+def pending_servers(text):
+    """`codex mcp list --json` 출력에서 켜져 있고 로그인이 필요한 원격 서버 이름. 형식이 다르면 None."""
+    try:
+        servers = json.loads(text)
+    except ValueError:
+        return None
+    if not isinstance(servers, list):
+        return None
+    names = []
+    for server in servers:
+        if not isinstance(server, dict) or not isinstance(server.get("name"), str):
+            continue
+        transport = server.get("transport")
+        kind = transport.get("type") if isinstance(transport, dict) else None
+        if server.get("enabled") and server.get("auth_status") == "not_logged_in" and kind in REMOTE:
+            names.append(server["name"])
+    return names
 
 
-def main():
-    if platform.system() != "Darwin" or platform.node().split(".")[0] != "YPK7M177JY" or getpass.getuser() != "sangwolee":
-        return
+def list_pending():
     try:
         listing = subprocess.run(["codex", "mcp", "list", "--json"], capture_output=True, text=True, timeout=15, check=True)
-        servers = json.loads(listing.stdout)
-    except (OSError, ValueError, subprocess.SubprocessError):
-        notify("MCP 로그인 상태 확인에 실패했습니다. `codex mcp list`로 확인하세요.")
-        return
-    names = [server["name"] for server in servers if server.get("enabled") and server.get("auth_status") == "not_logged_in" and server.get("transport", {}).get("type") in ("streamable_http", "sse")]
-    if not names:
-        return
-    lock_path = os.path.join(tempfile.gettempdir(), "knack-mcp-auto-login-" + str(os.getuid()) + ".lock")
-    try:
-        with open(lock_path, "a") as lock:
-            try:
-                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            except BlockingIOError:
-                notify("다른 세션에서 MCP 로그인이 진행 중입니다.")
-                return
-            failed = []
-            for name in names:
-                try:
-                    result = subprocess.run(["codex", "mcp", "login", name], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=100)
-                    if result.returncode:
-                        failed.append(name)
-                except (OSError, subprocess.TimeoutExpired):
-                    failed.append(name)
-            if failed:
-                notify("MCP 인증 실패 또는 시간 초과: " + ", ".join(failed) + ". 필요하면 `codex mcp login <이름>`을 실행하세요.")
-    except OSError:
-        notify("MCP 로그인 잠금을 만들 수 없어 자동 인증을 건너뛰었습니다.")
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return pending_servers(listing.stdout)
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        import mcp_login
+    except Exception:
+        sys.exit(0)
+    mcp_login.main("codex", list_pending, ["codex", "mcp", "login"])
