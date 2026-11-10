@@ -1,0 +1,12 @@
+{
+  "name": "mcp-auto-login-claude",
+  "description": "지정한 Mac의 Claude 세션 시작 시 로그인이 필요한 MCP를 인증한다.",
+  "enabled": true,
+  "command": "hook.py",
+  "targets": {
+    "claude": {
+      "event": "SessionStart",
+      "timeout": 480
+    }
+  }
+}
