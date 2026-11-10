@@ -37,6 +37,7 @@ check "mistake-proofing mistakes.py 회귀 테스트 (커밋 원장 집계·2회
 check "verification-skill link_skill.py 회귀 테스트 (링크·복사 sha256·덮어쓰기 거부)" 'python3 "$KNACK_DIR/tests/test_verification_skill.py" 2>/dev/null'
 check "guard-prod-ops 훅 회귀 테스트 (Claude·Codex 형식, fail-closed)" 'python3 "$KNACK_DIR/tests/test_guard_prod.py" 2>/dev/null'
 check "knack gate CHECK 실행 회귀 테스트" 'python3 "$KNACK_DIR/tests/test_gate_guard.py" 2>/dev/null'
+check "knack work 회귀 테스트 (worktree 공유 위치·진행 기록 덧붙이기·작업 중 경고·gate 실행 위치)" 'python3 "$KNACK_DIR/tests/test_work.py" 2>/dev/null'
 for f in "$KNACK_DIR"/skills/*/SKILL.md; do
   d="$(dirname "$f")"; s="$(basename "$d")"
   check "$s: frontmatter name 일치" '[ "$(sed -n "s/^name: *//p" "$f" | head -1)" = "$s" ]'
@@ -215,7 +216,7 @@ json.dump(cfg, open(sys.argv[1], "w"))
 PYEOF
 check "후보 목록: 캐시에 없는 첫 후보를 건너뛴다" '[ "$("$H" model get design --agent codex)" = "gpt-5.6-sol" ]'
 check "모델이 지원하지 않는 effort 는 떨군다" '[ "$("$H" model get design --agent codex --format flags)" = "-m gpt-5.6-sol" ]'
-check "후보가 전부 없으면 run 이 모델 플래그를 뺀다" '"$H" run lookup --agent codex --print --dry-run -- x 2>/dev/null | grep -q "^codex exec -$"'
+check "후보가 전부 없으면 run 이 모델 플래그를 뺀다" '"$H" run lookup --agent codex --print --dry-run -- x 2>/dev/null | grep -Eq "^codex exec (--add-dir [^ ]+ )?-$"'
 check "doctor: 설치된 후보가 없으면 경고" '"$H" doctor 2>&1 | grep -q "설치된 후보가 없음"'
 check "model list: 건너뛴 후보 표시" '"$H" model | grep -q "설치되지 않아 건너뛴 후보: .*gpt-6-astra"'
 mkdir -p "$HOME/.config/knack"

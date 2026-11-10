@@ -186,6 +186,25 @@ class Mistakes(unittest.TestCase):
         self.ledger(row("a", "bug-npe-2026-10-01"), row("a", "bug-npe-2026-10-20"))
         self.assertIn("mistake:a\t2회", run("list", self.d).stdout)
 
+    def test_bugfix_in_main_worktree_or_shared_folder_is_seen_from_another_worktree(self):
+        env = dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@example.com",
+                   GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@example.com")
+        env.pop("KNACK_WORK_DIR", None)
+        main, wt, shared = (os.path.join(self.d, n) for n in ("main", "wt", "shared"))
+        os.makedirs(main)
+        git = lambda *a: subprocess.run(["git", "-C", main, *a], check=True, capture_output=True, env=env)
+        git("init", "-q")
+        write(main, "docs/mistakes.md", HEAD + row("old-tag", "#1"))
+        git("add", "-A")
+        git("commit", "-q", "-m", "ledger")
+        git("worktree", "add", "-q", wt, "-b", "x")
+        write(main, ".design/bug-a/BUGFIX.md", "실수 태그: `mistake:old-tag`\n")
+        go = lambda: subprocess.run([sys.executable, SCRIPT, "list", wt], capture_output=True, text=True, env=env)
+        self.assertIn("1곳(bug-a)", go().stdout)
+        write(shared, "bug-s/BUGFIX.md", "실수 태그: `mistake:old-tag`\n")
+        git("config", "knack.workdir", shared)
+        self.assertIn("bug-s", go().stdout)
+
     def test_bugfix_only_tags_print_migration_note(self):
         write(self.d, ".design/bug-a/BUGFIX.md", "실수 태그: `mistake:old-tag`\n")
         write(self.d, ".design/bug-b/BUGFIX.md", "실수 태그: `mistake:old-tag`\n")

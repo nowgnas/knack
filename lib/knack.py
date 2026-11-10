@@ -1441,6 +1441,18 @@ def cmd_run(a):
         cmd = [*agent_cmd(agent), *flags, *(["--print"] if a.print else [])]
     else:
         cmd = [*agent_cmd(agent), *(["exec"] if a.print else []), *flags]
+        # Codex 의 workspace-write 샌드박스는 현재 worktree 밖에 쓰지 못한다. 과제 문서 폴더가 밖에 있으면
+        # (다른 worktree 에서 실행, KNACK_WORK_DIR·knack.workdir) 그 폴더만 쓰기 허용으로 더한다.
+        work = __import__("work")
+        shared = work.outside_dir(Path.cwd())
+        if shared:
+            if not a.dry_run:
+                try:
+                    work.ensure(shared, shared=bool(work.override(Path.cwd())))
+                except OSError:
+                    shared = None
+            if shared:
+                cmd += ["--add-dir", str(shared)]
     stdin_prompt = bool(prompt and a.print and (agent == "codex" or a.prompt_file))
     if stdin_prompt:
         if agent == "codex":
@@ -1737,6 +1749,29 @@ def main():
     s.add_argument("--timeout", type=int, default=600, help="게이트당 제한 시간(초)")
     s.add_argument("--strict", action="store_true", help="린트 경고가 있으면 종료 코드 1")
 
+    s = sub.add_parser("work", help="과제 문서(.design/<slug>) 위치와 진행 기록 — 모든 worktree 가 공유",
+                       epilog="예:\n  knack work list                      # 과제 목록·상태·작업 중인 에이전트\n"
+                              "  knack work status ORDER-12-cancel    # 승인 여부·남은 구현 순서·최근 기록\n"
+                              "  knack work path ORDER-12-cancel      # 문서 폴더 (없으면 만든다)\n"
+                              "  knack work log ORDER-12-cancel 시작 \"재고 복원 구현\" --step 7-2\n"
+                              "사건: 시작 · 완료 · 막힘 · 인계 · 승인 · 결정 · 메모",
+                       formatter_class=argparse.RawDescriptionHelpFormatter)
+    wsub = s.add_subparsers(dest="action", required=True)
+    x = wsub.add_parser("path", help="과제 문서 폴더 (slug 를 주면 만든다)")
+    x.add_argument("slug", nargs="?")
+    wsub.add_parser("list", help="과제 목록과 현재 상태")
+    x = wsub.add_parser("status", help="한 과제의 승인·남은 일·작업 중·최근 기록")
+    x.add_argument("slug", nargs="?")
+    x.add_argument("--tail", type=int, default=8, help="보여줄 최근 기록 줄 수")
+    x = wsub.add_parser("sync", help="이 worktree 에만 남은 과제 문서를 공유 폴더로 합치기")
+    x.add_argument("slug", nargs="?")
+    x = wsub.add_parser("log", help="진행 기록 한 줄 덧붙이기")
+    x.add_argument("slug")
+    x.add_argument("event", help="시작 · 완료 · 막힘 · 인계 · 승인 · 결정 · 메모")
+    x.add_argument("note", help="무엇을 · 다음 사람이 알아야 할 것")
+    x.add_argument("--step", default="", help="단계 (예: 설계, 7-2, 리뷰)")
+    x.add_argument("--who", help="기본값: <에이전트>@<worktree>:<브랜치>")
+
     a, extra = p.parse_known_args()
     extra = [x for x in extra if x != "--"]
     if a.cmd == "run":
@@ -1748,6 +1783,7 @@ def main():
      "model": cmd_model, "run": cmd_run, "models-sync": cmd_models_sync, "models-index": cmd_models_index,
      "persona": lambda args: __import__("persona").cmd_persona(args, sys.modules[__name__]),
      "gate": lambda args: __import__("gate").cmd_gate(args),
+     "work": lambda args: __import__("work").cmd_work(args),
      "persona-block": lambda args: cmd_persona_block(args)}[a.cmd](a)
 
 

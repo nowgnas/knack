@@ -138,15 +138,35 @@ def parse(text):
     return lines, gates, abandons, errors
 
 
-def find_root(path):
+def _git(cwd, *args):
     try:
-        p = subprocess.run(["git", "-C", str(path.resolve().parent), "rev-parse", "--show-toplevel"],
-                           capture_output=True, text=True)
-        if p.returncode == 0:
-            return Path(p.stdout.strip())
+        p = subprocess.run(["git", "-C", str(cwd), *args], capture_output=True, text=True)
     except OSError:
-        pass
-    return Path.cwd()
+        return ""
+    return p.stdout.strip() if p.returncode == 0 else ""
+
+
+def doc_root(path):
+    doc = _git(path.resolve().parent, "rev-parse", "--show-toplevel")
+    return Path(doc) if doc else Path.cwd()
+
+
+def find_root(path):
+    """GATES.md 가 속한 레포 루트. 과제 문서는 메인 worktree 에 모이므로, 같은 레포의 다른 worktree 에서
+    실행하면 문서가 있는 곳이 아니라 지금 작업 중인 worktree 의 코드를 검증한다."""
+    doc = doc_root(path)
+    here = _git(Path.cwd(), "rev-parse", "--show-toplevel")
+    common = ("rev-parse", "--path-format=absolute", "--git-common-dir")
+    if here and Path(here) != doc and _git(doc, *common) and _git(doc, *common) == _git(here, *common):
+        return Path(here)
+    return doc
+
+
+def commit_token(root):
+    sha = _git(root, "rev-parse", "--short", "HEAD")
+    if not sha:
+        return ""
+    return f" commit={sha}" + ("+dirty" if _git(root, "status", "--porcelain", "--untracked-files=no") else "")
 
 
 def run_gate(gate, root, timeout):
@@ -169,10 +189,10 @@ def run_gate(gate, root, timeout):
     return p.returncode == 0 and matched, f"exit={p.returncode} expect={'matched' if matched else 'missing'}", combined
 
 
-def evidence_line(gate, ok, detail, output):
+def evidence_line(gate, ok, detail, output, commit=""):
     now = datetime.datetime.now().astimezone().strftime("%Y-%m-%dT%H:%M:%S%z")
     out = hashlib.sha256(output.encode("utf-8")).hexdigest()[:12]
-    return f"auto-v1 def={gate.digest()} result={'pass' if ok else 'fail'} {detail} out={out} at={now}"
+    return f"auto-v1 def={gate.digest()} result={'pass' if ok else 'fail'} {detail} out={out} at={now}{commit}"
 
 
 def apply(lines, gate, ok, evidence):
@@ -255,6 +275,9 @@ def cmd_gate(a):
         sys.exit(2)
     if a.action != "status":
         root = find_root(path)
+        commit = commit_token(root)
+        if root != doc_root(path):
+            print(f"실행 위치: {root} (GATES.md 와 다른 worktree)", flush=True)
         results = []
         for g in gates:
             if g.id in abandons or not g.runnable:
@@ -266,7 +289,7 @@ def cmd_gate(a):
             if not ok:
                 for t in output.rstrip().splitlines()[-15:]:
                     print(f"    │ {t}")
-            results.append((g, ok, evidence_line(g, ok, detail, output)))
+            results.append((g, ok, evidence_line(g, ok, detail, output, commit)))
         for g, ok, ev in sorted(results, key=lambda r: r[0].line, reverse=True):
             apply(lines, g, ok, ev)
         if results:
