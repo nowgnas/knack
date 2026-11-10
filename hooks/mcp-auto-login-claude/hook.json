@@ -1,12 +1,13 @@
 {
   "name": "mcp-auto-login-claude",
-  "description": "지정한 Mac의 Claude 세션 시작 시 로그인이 필요한 MCP를 인증한다.",
+  "description": "세션을 새로 시작할 때, 이 PC 설정(~/.config/knack/mcp-auto-login.local.json)이 허용한 MCP 중 로그인이 필요한 것만 인증한다. 설정이 없거나 비대화 실행이면 아무것도 하지 않는다.",
   "enabled": true,
   "command": "hook.py",
   "targets": {
     "claude": {
       "event": "SessionStart",
-      "timeout": 480
+      "matcher": "startup",
+      "timeout": 130
     }
   }
 }
