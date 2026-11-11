@@ -61,7 +61,7 @@ MAX_SCRIPT = 256 * 1024
 MAX_DEPTH = 2
 
 GUIDE = ("guard-prod-ops: {why}\n"
-         "운영·공유 DB 변경과 운영 환경 실행은 에이전트가 하지 않습니다(30-backend-safety). 명령만 사용자에게 제안하세요.\n"
+         "운영 DB 변경과 운영 환경 실행은 에이전트가 하지 않습니다(30-backend-safety). 명령만 사용자에게 제안하세요.\n"
          "- 로컬 DB라면 대상을 명령에 명시: --connection \"Server=localhost,1433;…\" · -url=jdbc:postgresql://localhost:5432/app · "
          "Testcontainers(jdbc:tc:)\n"
          "- 로컬 docker 서비스 호스트는 사용자가 프로젝트 .knack/safe-db-hosts 에 한 줄씩(정확한 이름) 추가\n"
